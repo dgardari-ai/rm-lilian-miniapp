@@ -15,13 +15,12 @@ const MESSAGES = {
   'copy-failed': 'Не удалось скопировать текст. Чат не открыт. Попробуйте ещё раз.',
   'copy-timeout': 'Не удалось вовремя подтвердить копирование. Чат не открыт. Попробуйте ещё раз.',
   busy: 'Дождитесь завершения копирования.',
-  'open-failed': 'Текст скопирован. Не удалось открыть чат автоматически; нажмите «Открыть чат».',
 };
 
 class OperationTimeout extends Error {}
 
 // Invoke immediately, preserving the caller's user gesture for browser clipboard access.
-// A timeout does not cancel the platform operation; its late result cannot navigate.
+// A timeout does not cancel the platform operation; its late result cannot replace the outcome.
 async function bounded(operation, milliseconds) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -34,11 +33,11 @@ async function bounded(operation, milliseconds) {
   }
 }
 
-function failure(code, copied = false) {
+function failure(code) {
   return {
     ok: false,
-    status: code === 'busy' ? 'busy' : copied ? 'open-failed' : 'failed',
-    copied,
+    status: code === 'busy' ? 'busy' : 'failed',
+    copied: false,
     url: COMMUNITY_URL,
     code,
     message: MESSAGES[code],
@@ -46,21 +45,17 @@ function failure(code, copied = false) {
 }
 
 /**
- * Owns only initialization, copying and an injected navigation attempt.
- * Create once when the page is ready, await `ready`, then call `copyAndOpen(text)`
- * directly from a user click. No copy, navigation or permission request runs at creation.
- * `navigate(url)` must be synchronous; return false or throw for a known failure.
- * A normal return means only "open-attempted", never proof that a chat opened.
- * Keep an ordinary visible COMMUNITY_URL link after every confirmed copy.
+ * Owns only initialization and copying.
+ * Create once when the page is ready, await `ready`, then call `copyText(text)`
+ * directly from a user click. No copy or permission request runs at creation.
+ * The transport never opens a page; the UI owns any separate user action on the returned URL.
  */
 export function createVkTransport({
   bridge = null,
   clipboard = null,
-  navigate,
   secureContext = false,
   timeoutMs = 8000,
 } = {}) {
-  if (typeof navigate !== 'function') throw new TypeError('navigate must be a function');
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new TypeError('timeoutMs must be positive');
 
   let embedded = false;
@@ -102,7 +97,7 @@ export function createVkTransport({
   // Exactly one initialization attempt, started before returning the transport.
   const ready = initialize();
 
-  async function copyAndOpen(text) {
+  async function copyText(text) {
     if (busy) return failure('busy');
     if (!readiness.ok) return failure(readiness.code);
     if (typeof text !== 'string' || !text.trim()) return failure('invalid-text');
@@ -125,16 +120,11 @@ export function createVkTransport({
       }
       if (!copied) return failure('copy-not-confirmed');
 
-      try {
-        if (navigate(COMMUNITY_URL) === false) return failure('open-failed', true);
-      } catch {
-        return failure('open-failed', true);
-      }
-      return { ok: true, status: 'open-attempted', copied: true, url: COMMUNITY_URL };
+      return { ok: true, status: 'copied', copied: true, url: COMMUNITY_URL };
     } finally {
       busy = false;
     }
   }
 
-  return Object.freeze({ embedded, ready, copyAndOpen });
+  return Object.freeze({ embedded, ready, copyText });
 }

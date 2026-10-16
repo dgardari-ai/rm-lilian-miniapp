@@ -22,3 +22,25 @@
 }
 .chat-link:focus-visible { outline: 3px solid #263f27; outline-offset: 4px; }
 .main-btn:disabled, .city-card:disabled { opacity: .65; cursor: wait; transform: none; }
+.copy-dialog {
+  width: min(460px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: clamp(24px, 5vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--paper);
+  color: var(--olive-ink);
+  box-shadow: 0 20px 70px var(--shadow);
+  overscroll-behavior: contain;
+}
+.copy-dialog::backdrop { background: rgba(23, 34, 23, .58); }
+.copy-dialog h2 { margin: 0 0 18px; font-size: clamp(28px, 6vw, 36px); line-height: 1.08; }
+.copy-dialog p, .copy-dialog ol { font-size: 17px; line-height: 1.5; }
+.copy-dialog p { margin: 0 0 10px; }
+.copy-dialog ol { margin: 0 0 26px; padding-left: 22px; }
+.copy-dialog li + li { margin-top: 12px; }
+.copy-dialog .main-btn { width: 100%; min-height: 52px; text-decoration: none; }
+.copy-dialog a:focus-visible { outline: 3px solid var(--olive-deep); outline-offset: 4px; }
+.copy-back { display: block; min-height: 44px; margin: 12px auto 0; padding: 8px 18px; border: 0; background: transparent; color: var(--olive-deep); }
+body:has(.copy-dialog[open]) { overflow: hidden; }

@@ -11,7 +11,8 @@ let attempted = false;
 let transportReady = false;
 let contactBusy = false;
 let operationId = 0;
-let pendingNavigation = null;
+let copyTrigger = null;
+const copyDialog = $('#copy-dialog');
 const assetUrl = path => new URL('../' + path, import.meta.url).href;
 
 const MIRROR = 'https://dgardari-ai.github.io/rm-lilian-miniapp/versions/1.1/';
@@ -104,7 +105,7 @@ function populate() {
   };
   for (const [selector, key] of Object.entries(text)) $(selector).textContent = CONFIG.ui[key];
   heightInput.placeholder = CONFIG.ui.heightPlaceholder;
-  $('#contact-hint').textContent = 'Скопируем готовое обращение и откроем чат Rubia&Morena. Вставьте текст в сообщение и отправьте его.';
+  $('#contact-hint').textContent = 'Скопируем текст и покажем, как отправить его в чат.';
   for (const branch of CONFIG.branches) {
     const figure = $(`[data-image-branch="${branch.key}"]`);
     setResilientImage(figure.querySelector('img'), branch.image);
@@ -128,7 +129,7 @@ function populate() {
     const arrow = document.createElement('span'); arrow.className = 'd-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
     button.append(label, arrow);
     button.setAttribute('aria-describedby', 'city-contact-hint');
-    button.addEventListener('click', () => copyAndOpen(city.message));
+    button.addEventListener('click', () => prepareContact(city.message));
     $('#cities').append(button);
   }
   for (const size of CONFIG.sizes) {
@@ -156,7 +157,7 @@ function syncForm() {
   if (!branch) return;
   $('#chosen-brand').textContent = branch.brand;
   $('#chosen-label').textContent = branch.cardTitle;
-  $('#submit-btn').textContent = 'Скопировать и открыть чат';
+  $('#submit-btn').textContent = 'Подготовить сообщение';
   $('#chosen-photo').dataset.branch = branch.key;
   for (const img of [$('#photo-large'), $('#photo-inline')]) {
     setResilientImage(img, branch.image); img.alt = branch.alt; img.dataset.branch = branch.key;
@@ -169,7 +170,7 @@ function syncForm() {
 function showScreen(screen, { push = true, focus = true } = {}) {
   if (!screens.includes(screen) || (screen === 'form' && !state.branch)) screen = 'intro';
   operationId += 1;
-  pendingNavigation = null;
+  copyTrigger = null;
   clearFeedback();
   state.screen = screen;
   for (const section of $$('.screen')) section.hidden = section.dataset.screen !== screen;
@@ -194,7 +195,8 @@ function selectBranch(key) {
 function goBack() {
   if (state.screen !== 'intro') {
     operationId += 1;
-    pendingNavigation = null;
+    copyTrigger = null;
+    if (copyDialog.open) copyDialog.close();
     history.back();
   }
 }
@@ -209,10 +211,11 @@ function openContact(event) {
     else heightInput.focus();
     return;
   }
-  copyAndOpen(buildMessage(state.branch, state.size, result.height));
+  prepareContact(buildMessage(state.branch, state.size, result.height));
 }
 
 function clearFeedback() {
+  if (copyDialog.open) copyDialog.close();
   $$('[data-contact-feedback]').forEach((area) => {
     area.hidden = true;
     area.querySelector('a').hidden = true;
@@ -234,7 +237,9 @@ function showFeedback(message, { copied = false, error = false } = {}) {
 }
 
 function showCopied() {
-  showFeedback('Текст скопирован. В чате нажмите «Вставить», затем «Отправить». Если чат не открылся, воспользуйтесь ссылкой ниже.', { copied: true });
+  showFeedback('Текст скопирован. В чате нажмите «Вставить», затем «Отправить».', { copied: true });
+  copyDialog.showModal();
+  $('#copy-title').focus({ preventScroll: true });
 }
 
 function updateContactControls() {
@@ -244,37 +249,22 @@ function updateContactControls() {
   $$('input[name="size"]').forEach((input) => { input.disabled = contactBusy; });
 }
 
-function navigateToChat(url) {
-  if (pendingNavigation === null || pendingNavigation !== operationId) return false;
-  showCopied();
-  // An iframe can refuse this attempt. The visible fallback link uses a fresh user click.
-  const link = document.createElement('a');
-  link.href = url;
-  link.target = '_top';
-  link.rel = 'noreferrer';
-  link.hidden = true;
-  document.body.append(link);
-  try { link.click(); } finally { link.remove(); }
-  return true;
-}
-
-async function copyAndOpen(text) {
+async function prepareContact(text) {
   if (!transportReady || contactBusy) return;
   clearFeedback();
   const id = ++operationId;
-  pendingNavigation = id;
+  copyTrigger = document.activeElement;
   contactBusy = true;
   updateContactControls();
   showFeedback('Копируем сообщение…');
   try {
-    const outcome = await transport.copyAndOpen(text);
+    const outcome = await transport.copyText(text);
     if (id !== operationId) return;
     if (outcome.copied) showCopied();
     else showFeedback(outcome.message || 'Не удалось скопировать сообщение. Попробуйте ещё раз.', { error: true });
   } catch {
     if (id === operationId) showFeedback('Не удалось завершить действие. Попробуйте ещё раз.', { error: true });
   } finally {
-    if (pendingNavigation === id) pendingNavigation = null;
     contactBusy = false;
     updateContactControls();
   }
@@ -297,7 +287,6 @@ const transport = createVkTransport({
   bridge,
   clipboard: navigator.clipboard,
   secureContext: window.isSecureContext,
-  navigate: navigateToChat,
 });
 
 setResilientImage($('#home img'), 'assets/IMG_4584.jpeg');
@@ -330,5 +319,20 @@ heightInput.addEventListener('blur', () => {
 });
 $('#parameters').addEventListener('submit', openContact);
 $('#size-options').addEventListener('change', clearFeedback);
+$('#copy-back').addEventListener('click', () => copyDialog.close());
+copyDialog.addEventListener('keydown', (event) => {
+  if (event.key !== 'Tab') return;
+  const first = copyDialog.querySelector('a');
+  const last = $('#copy-back');
+  if (event.shiftKey && [first, $('#copy-title')].includes(document.activeElement)) {
+    event.preventDefault(); last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault(); first.focus();
+  }
+});
+copyDialog.addEventListener('close', () => {
+  if (copyTrigger?.getClientRects().length) copyTrigger.focus({ preventScroll: true });
+  copyTrigger = null;
+});
 
 showScreen('intro', { push: false, focus: false });

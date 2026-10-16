@@ -7,13 +7,13 @@
   <meta name="color-scheme" content="light">
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
-  <meta name="app-version" content="1.1.2-vk-candidate.2">
+  <meta name="app-version" content="1.1.2-vk-candidate.4">
   <title>Rubia&Morena / LILIAN — ваш образ</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../styles.css?v=1.1.2">
-  <link rel="stylesheet" href="./styles.css?v=1">
+  <link rel="stylesheet" href="./styles.css?v=4">
   <script id="vk-sdk" src="https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@3.0.2/dist/browser.min.js" integrity="sha384-8K7KdNdtyf4bfQKPtkFUE/XpmZs7mvXeU35WT+sO8mWa2ThX7Cz4y4kzyAVcp2B2" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script type="module" src="./app.js?v=2"></script>
+  <script type="module" src="./app.js?v=4"></script>
 </head>
 <body>
 <div class="app"><div class="container">
@@ -45,7 +45,7 @@
     <section class="screen" data-screen="space" hidden aria-labelledby="space-title">
       <div class="space-layout">
         <div class="section-intro"><button class="back" data-back type="button"><span class="back-circle" aria-hidden="true">←</span><span>Назад</span></button><h2 id="space-title" tabindex="-1"></h2><p class="city-prompt" id="city-prompt"></p></div>
-        <div class="city-content"><div class="city-list" id="cities"></div><p class="microcopy" id="city-contact-hint">Нажмите на город: скопируем обращение и откроем чат. Вставьте текст в сообщение и отправьте его.</p><div class="contact-feedback" data-contact-feedback="space" hidden><p class="microcopy" role="status" aria-live="polite"></p><a class="chat-link" href="https://vk.me/rubiamorena" target="_blank" rel="noopener noreferrer" hidden>Открыть чат</a></div></div>
+        <div class="city-content"><div class="city-list" id="cities"></div><p class="microcopy" id="city-contact-hint">Выберите город. Подготовим текст для записи на примерку.</p><div class="contact-feedback" data-contact-feedback="space" hidden><p class="microcopy" role="status" aria-live="polite"></p><a class="chat-link" href="https://vk.me/rubiamorena" target="_blank" rel="noopener noreferrer" hidden>Открыть чат</a></div></div>
       </div>
     </section>
     <section class="screen" data-screen="form" hidden aria-labelledby="form-heading">
@@ -66,5 +66,15 @@
   </main>
   <noscript>Для выбора образа включите JavaScript в браузере.</noscript>
 </div></div>
+<dialog id="copy-dialog" class="copy-dialog" aria-labelledby="copy-title">
+  <h2 id="copy-title" tabindex="-1">Текст скопирован</h2>
+  <p>В чате Rubia&amp;Morena:</p>
+  <ol id="copy-steps">
+    <li>Нажмите на поле сообщения и выберите <strong>«Вставить»</strong>.</li>
+    <li>Проверьте текст и нажмите <strong>«Отправить»</strong>.</li>
+  </ol>
+  <a class="main-btn" href="https://vk.me/rubiamorena" target="_top" rel="noreferrer">Перейти в чат</a>
+  <button id="copy-back" class="copy-back" type="button">Вернуться</button>
+</dialog>
 </body>
 </html>

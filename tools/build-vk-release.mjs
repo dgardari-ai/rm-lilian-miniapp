@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { CONFIG } from '../model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '1.1.2-vk-candidate.3';
+const VERSION = '1.1.2-vk-candidate.4';
 const FILES = ['vk/index.html', 'vk/app.js', 'vk/styles.css', 'vk/transport.mjs'];
 const SDK_SHA384 = '8K7KdNdtyf4bfQKPtkFUE/XpmZs7mvXeU35WT+sO8mWa2ThX7Cz4y4kzyAVcp2B2';
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
@@ -17,6 +17,33 @@ const escapeScript = (source) => source.replace(/<\/script/gi, '<\\/script');
 const stripSourceComments = (source) => source
   .replace(/^[\t ]*\/\*[\s\S]*?\*\/[\t ]*(?:\r?\n|$)/gm, '\n')
   .replace(/^[\t ]*\/\/[^\r\n]*(?:\r?\n|$)/gm, '\n');
+
+export function prepareVkModel(source, application) {
+  // These two Telegram URL helpers are not used by this VK application.
+  // Remove only their known top-level definitions; leave the source model intact.
+  for (const name of ['createContactUrl', 'createCityContactUrl']) {
+    if (new RegExp(`\\b${name}\\b`).test(application)
+        || (source.match(new RegExp(`\\b${name}\\b`, 'g')) || []).length !== 1) {
+      throw new Error(`Cannot omit a referenced or changed model helper: ${name}`);
+    }
+    source = replaceRequired(source,
+      new RegExp(`^export function ${name}\\([^]*?^}\\r?\\n?`, 'm'), '', name);
+  }
+  return source;
+}
+
+export function compactCss(source) {
+  // Preserve quoted values and comments byte-for-byte. Keep spaces around math
+  // operators and between selector tokens; compact only CSS separator whitespace.
+  return source.split(/("(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\/\*[\s\S]*?\*\/)/)
+    .map((part, index) => {
+      if (index % 2) return part;
+      if (part.includes('\\')) throw new Error('CSS escape outside a quoted value requires review');
+      return part.replace(/[\t\n\f\r ]+/g, ' ')
+        .replace(/[\t\n\f\r ]*([{};,])[\t\n\f\r ]*/g, '$1')
+        .replace(/;}/g, '}');
+    }).join('').trim();
+}
 
 function replaceRequired(input, pattern, replacement, label) {
   if (!pattern.test(input)) throw new Error(`Missing source element: ${label}`);
@@ -94,12 +121,13 @@ export async function buildVkRelease(output) {
   appBody = replaceRequired(appBody,
     /new URL\('\.\.\/' \+ path, import\.meta\.url\)/,
     "new URL('../' + path, document.baseURI)", 'assetUrl');
-  const bundle = stripSourceComments(`(() => {\n'use strict';\n${stripExports(model.toString('utf8'))}\n${stripExports(transport.toString('utf8'))}\n${appBody}\n})();\n`);
+  const modelBody = prepareVkModel(model.toString('utf8'), appBody);
+  const bundle = stripSourceComments(`(() => {\n'use strict';\n${stripExports(modelBody)}\n${stripExports(transport.toString('utf8'))}\n${appBody}\n})();\n`);
   if (/^\s*(?:import|export)\b/m.test(bundle) || bundle.includes('import.meta')) {
     throw new Error('Unexpected module dependency remains in the VK bundle');
   }
   new Function(bundle); // Compile without browser globals or side effects.
-  const combinedCss = stripSourceComments(sharedCss.toString('utf8') + '\n' + vkCss.toString('utf8'));
+  const combinedCss = compactCss(stripSourceComments(sharedCss.toString('utf8') + '\n' + vkCss.toString('utf8')));
   if (/<\/style/i.test(combinedCss)) throw new Error('CSS contains a closing style tag');
 
   let html = renderStaticVkHtml(sourceHtml.toString('utf8'));
@@ -140,6 +168,6 @@ export async function buildVkRelease(output) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   console.log(JSON.stringify(await buildVkRelease(
-    process.argv[2] || '/private/tmp/rm-lilian-vk-candidate-3-release',
+    process.argv[2] || '/private/tmp/rm-lilian-vk-candidate-4-release',
   ), null, 2));
 }
