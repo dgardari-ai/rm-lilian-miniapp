@@ -1,4 +1,5 @@
-import { CONFIG, normalizeHeight, validate, createContactUrl, createCityContactUrl } from './model.mjs?v=1.1.2';
+import { CONFIG, normalizeHeight, validate, createContactUrl, createCityContactUrl } from './model.mjs?v=1.1.3';
+import { setResilientImage } from './image-loader.mjs?v=1.1.3';
 
 const state = { screen: 'intro', branch: null, size: null, height: '' };
 const screens = ['intro', 'select', 'form', 'space'];
@@ -29,7 +30,7 @@ function populate() {
   heightInput.placeholder = CONFIG.ui.heightPlaceholder;
   for (const branch of CONFIG.branches) {
     const figure = $(`[data-image-branch="${branch.key}"]`);
-    figure.querySelector('img').src = branch.image;
+    setResilientImage(figure.querySelector('img'), branch.image);
     figure.querySelector('img').alt = branch.alt;
     figure.querySelector('img').width = branch.imageWidth;
     figure.querySelector('img').height = branch.imageHeight;
@@ -37,7 +38,7 @@ function populate() {
     const card = document.createElement('button');
     card.type = 'button'; card.className = 'direction-card'; card.dataset.branch = branch.key;
     const image = document.createElement('img');
-    image.src = branch.image; image.alt = branch.alt; image.width = branch.imageWidth; image.height = branch.imageHeight;
+    setResilientImage(image, branch.image); image.alt = branch.alt; image.width = branch.imageWidth; image.height = branch.imageHeight;
     const copy = document.createElement('span');
     const title = document.createElement('span'); title.className = 'd-title'; title.textContent = branch.cardTitle; copy.append(title);
     const arrow = document.createElement('span'); arrow.className = 'd-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
@@ -80,7 +81,7 @@ function syncForm() {
   $('#submit-btn').textContent = branch.cta;
   $('#chosen-photo').dataset.branch = branch.key;
   for (const img of [$('#photo-large'), $('#photo-inline')]) {
-    img.src = branch.image; img.alt = branch.alt; img.dataset.branch = branch.key;
+    setResilientImage(img, branch.image); img.alt = branch.alt; img.dataset.branch = branch.key;
     img.width = branch.imageWidth; img.height = branch.imageHeight;
   }
   heightInput.value = state.height;
@@ -165,6 +166,7 @@ function openPreparedContact(url) {
   else window.location.assign(url);
 }
 
+setResilientImage($('#home img'), 'assets/IMG_4584.jpeg');
 populate();
 history.replaceState({ rmLilian: true, screen: 'intro' }, '', location.href);
 $('#start').addEventListener('click', () => showScreen('select'));
