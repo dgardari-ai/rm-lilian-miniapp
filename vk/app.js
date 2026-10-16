@@ -14,6 +14,79 @@ let operationId = 0;
 let pendingNavigation = null;
 const assetUrl = path => new URL('../' + path, import.meta.url).href;
 
+const MIRROR = 'https://dgardari-ai.github.io/rm-lilian-miniapp/versions/1.1/';
+const APPROVED_IMAGES = new Set([
+  'assets/IMG_4584.jpeg', 'assets/IMG_4914.jpeg',
+  'assets/IMG_4915.jpeg', 'assets/IMG_4920.jpeg',
+]);
+const imageRequests = new WeakMap();
+
+/** Keep the original image first; a failed or stalled request gets one exact mirror. */
+function setResilientImage(img, source, { timeoutMs = 2800 } = {}) {
+  const primary = assetUrl(source);
+  const previous = imageRequests.get(img);
+  if (previous?.primary === primary && img.src === previous.expected) return;
+  previous?.cleanup();
+
+  const relative = source.replace(/^\.\//, '');
+  const fallback = APPROVED_IMAGES.has(relative) ? MIRROR + relative : null;
+  let timer;
+  const request = { primary, expected: primary, usedFallback: false, cleanup };
+  imageRequests.set(img, request);
+  img.referrerPolicy = 'no-referrer';
+
+  function cleanup() {
+    clearTimeout(timer);
+    img.removeEventListener('load', onLoad);
+    img.removeEventListener('error', onError);
+  }
+
+  function isCurrent() {
+    return imageRequests.get(img) === request && img.src === request.expected;
+  }
+
+  function isExpectedSource() {
+    return !img.currentSrc || img.currentSrc === request.expected;
+  }
+
+  function useFallback() {
+    if (!isCurrent() || request.usedFallback || !fallback) {
+      cleanup();
+      return;
+    }
+    if (img.complete && img.naturalWidth > 0 && isExpectedSource()) {
+      cleanup();
+      return;
+    }
+    cleanup();
+    request.usedFallback = true;
+    request.expected = fallback;
+    img.src = fallback;
+  }
+
+  function onLoad() {
+    if (!isCurrent()) return;
+    if (!isExpectedSource()) return;
+    cleanup();
+  }
+
+  function onError() {
+    if (!isExpectedSource()) return;
+    useFallback();
+  }
+
+  if (fallback) {
+    img.addEventListener('load', onLoad);
+    img.addEventListener('error', onError);
+    timer = setTimeout(useFallback, timeoutMs);
+  }
+  if (img.src !== primary) img.src = primary;
+  if (img.complete && isExpectedSource()) {
+    if (img.naturalWidth > 0) cleanup();
+    else if (fallback) useFallback();
+  }
+}
+
 function populate() {
   const words = CONFIG.ui.introTitle.split(' ');
   $('#hero-heading').replaceChildren();
@@ -34,7 +107,7 @@ function populate() {
   $('#contact-hint').textContent = 'Скопируем готовое обращение и откроем чат Rubia&Morena. Вставьте текст в сообщение и отправьте его.';
   for (const branch of CONFIG.branches) {
     const figure = $(`[data-image-branch="${branch.key}"]`);
-    figure.querySelector('img').src = assetUrl(branch.image);
+    setResilientImage(figure.querySelector('img'), branch.image);
     figure.querySelector('img').alt = branch.alt;
     figure.querySelector('img').width = branch.imageWidth;
     figure.querySelector('img').height = branch.imageHeight;
@@ -42,7 +115,7 @@ function populate() {
     const card = document.createElement('button');
     card.type = 'button'; card.className = 'direction-card'; card.dataset.branch = branch.key;
     const image = document.createElement('img');
-    image.src = assetUrl(branch.image); image.alt = branch.alt; image.width = branch.imageWidth; image.height = branch.imageHeight;
+    setResilientImage(image, branch.image); image.alt = branch.alt; image.width = branch.imageWidth; image.height = branch.imageHeight;
     const copy = document.createElement('span');
     const title = document.createElement('span'); title.className = 'd-title'; title.textContent = branch.cardTitle; copy.append(title);
     const arrow = document.createElement('span'); arrow.className = 'd-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
@@ -86,7 +159,7 @@ function syncForm() {
   $('#submit-btn').textContent = 'Скопировать и открыть чат';
   $('#chosen-photo').dataset.branch = branch.key;
   for (const img of [$('#photo-large'), $('#photo-inline')]) {
-    img.src = assetUrl(branch.image); img.alt = branch.alt; img.dataset.branch = branch.key;
+    setResilientImage(img, branch.image); img.alt = branch.alt; img.dataset.branch = branch.key;
     img.width = branch.imageWidth; img.height = branch.imageHeight;
   }
   heightInput.value = state.height;
@@ -227,6 +300,7 @@ const transport = createVkTransport({
   navigate: navigateToChat,
 });
 
+setResilientImage($('#home img'), 'assets/IMG_4584.jpeg');
 populate();
 updateContactControls();
 transport.ready.then((outcome) => {
