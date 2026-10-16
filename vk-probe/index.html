@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>ЛИЛИАН — проверка возможности ВК</title>
+<body>
+<h1>ЛИЛИАН — проверка возможности ВК</h1>
+<p>Страница проверяет только объявленную поддержку окна сообщения. Получатель и текст не передаются, сообщения не отправляются.</p>
+<p>Для проверки откройте эту страницу как тестовое мини-приложение внутри ВК.</p>
+<button id="check" type="button">Проверить доступность окна</button>
+<pre id="result" role="status" aria-live="polite" style="white-space:pre-wrap">Проверка ещё не выполнялась.</pre>
+<script src="https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@3.0.2/dist/browser.min.js" integrity="sha384-8K7KdNdtyf4bfQKPtkFUE/XpmZs7mvXeU35WT+sO8mWa2ThX7Cz4y4kzyAVcp2B2" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="probe.js"></script>
+</body>
+</html>
