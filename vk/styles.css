@@ -1,0 +1,24 @@
+/* The accepted layout, photographs and palette come from ../styles.css. */
+:root {
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--vk-safe-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--vk-safe-bottom, 0px));
+}
+.app {
+  padding-left: max(env(safe-area-inset-left, 0px), var(--vk-safe-left, 0px));
+  padding-right: max(env(safe-area-inset-right, 0px), var(--vk-safe-right, 0px));
+}
+.city-content { min-width: 0; }
+.platform-status { padding: 10px 0; }
+.contact-feedback { margin-top: 14px; }
+.contact-feedback p { margin: 0; }
+.chat-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 4px;
+  color: var(--olive-deep);
+  font-weight: 700;
+  text-underline-offset: 4px;
+}
+.chat-link:focus-visible { outline: 3px solid #263f27; outline-offset: 4px; }
+.main-btn:disabled, .city-card:disabled { opacity: .65; cursor: wait; transform: none; }
