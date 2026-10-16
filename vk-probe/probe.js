@@ -2,6 +2,9 @@
 
 const button = document.getElementById('check');
 const result = document.getElementById('result');
+const bridge = window.vkBridge;
+let initialized = false;
+button.disabled = true;
 
 function bounded(promise, milliseconds) {
   let timer;
@@ -11,9 +14,8 @@ function bounded(promise, milliseconds) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-button.addEventListener('click', async () => {
-  const bridge = window.vkBridge;
-  if (!bridge || typeof bridge.supportsAsync !== 'function') {
+async function initialize() {
+  if (!bridge || typeof bridge.send !== 'function' || typeof bridge.isEmbedded !== 'function') {
     result.textContent = 'Библиотека ВК не загрузилась. Поддержка метода не проверена.';
     return;
   }
@@ -21,10 +23,30 @@ button.addEventListener('click', async () => {
     result.textContent = 'Страница открыта вне встроенного мини-приложения. Этот запуск не проверяет возможности клиента ВК.';
     return;
   }
+  result.textContent = 'Устанавливаем связь с ВК…';
+  try {
+    const response = await bounded(bridge.send('VKWebAppInit'), 8000);
+    if (response?.result !== true) {
+      result.textContent = 'ВК не подтвердил запуск страницы. Закройте мини-приложение и откройте его снова.';
+      return;
+    }
+    initialized = true;
+    if (typeof bridge.supportsAsync !== 'function') {
+      result.textContent = 'Связь с ВК установлена, но библиотека не предоставляет проверку возможностей.';
+      return;
+    }
+    result.textContent = 'Связь с ВК установлена. Нажмите «Проверить доступность окна».';
+    button.disabled = false;
+  } catch {
+    result.textContent = 'Не получено подтверждение запуска от ВК. Закройте мини-приложение и откройте его снова.';
+  }
+}
+
+button.addEventListener('click', async () => {
+  if (!initialized || button.disabled) return;
   button.disabled = true;
   result.textContent = 'Проверка доступности…';
   try {
-    await bounded(bridge.send('VKWebAppInit'), 8000);
     const supported = await bounded(bridge.supportsAsync('VKWebAppShowMessageBox'), 8000);
     const environment = bridge.isWebView() ? 'Встроенный мобильный клиент' : 'Встроенная браузерная страница';
     result.textContent = environment + '\n' + (supported
@@ -36,3 +58,6 @@ button.addEventListener('click', async () => {
     button.disabled = false;
   }
 });
+
+// VK must receive its initialization event before it can expose the page controls.
+void initialize();
