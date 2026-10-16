@@ -9,7 +9,7 @@ export const CONFIG = {
     introDescription: 'Выберите свой запрос. Подберём образ в чате или в нашем пространстве.',
     startButton: 'Подобрать образ онлайн',
     spaceButton: 'Записаться на примерку',
-    spaceTitle: 'Подобрать образ в пространстве',
+    spaceTitle: 'Записаться на примерку',
     cityPrompt: 'Выберите город',
     branchTitle: 'Какой образ вы ищете?',
     formTitle: 'Уточним размер и рост',

@@ -1,4 +1,4 @@
-import { CONFIG, normalizeHeight, validate, createContactUrl, createCityContactUrl } from './model.mjs?v=1.1.1';
+import { CONFIG, normalizeHeight, validate, createContactUrl, createCityContactUrl } from './model.mjs?v=1.1.2';
 
 const state = { screen: 'intro', branch: null, size: null, height: '' };
 const screens = ['intro', 'select', 'form', 'space'];
