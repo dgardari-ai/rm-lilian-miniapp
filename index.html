@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#9AA982">
   <meta name="color-scheme" content="light">
   <meta name="robots" content="noindex,nofollow">
-  <meta name="app-version" content="1.0.0-test">
+  <meta name="app-version" content="1.1.0-candidate">
   <title>Rubia&Morena / LILIAN — ваш образ</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
@@ -26,17 +26,23 @@
       <div class="hero-layout">
         <div class="intro-copy"><h1 id="hero-heading" tabindex="-1"><span>Не листай.</span> <span>Собери свою</span> <span>ситуацию.</span></h1><p class="lead" id="intro-description"></p></div>
         <div class="collage" aria-label="Три направления образа">
-          <figure class="collage-card collage-left" data-image-branch="training"><img width="1280" height="1280" alt=""><figcaption></figcaption></figure>
-          <figure class="collage-card collage-right" data-image-branch="milonga"><img width="1920" height="2560" alt=""><figcaption></figcaption></figure>
-          <figure class="collage-card collage-center" data-image-branch="custom"><img width="960" height="1280" alt=""><figcaption></figcaption></figure>
+          <figure class="collage-card collage-left" data-image-branch="training"><span class="photo-window"><img width="1200" height="1600" alt=""></span><figcaption></figcaption></figure>
+          <figure class="collage-card collage-right" data-image-branch="milonga"><span class="photo-window"><img width="1200" height="1600" alt=""></span><figcaption></figcaption></figure>
+          <figure class="collage-card collage-center" data-image-branch="custom"><span class="photo-window"><img width="1199" height="1600" alt=""></span><figcaption></figcaption></figure>
         </div>
-        <div class="intro-action"><button class="main-btn" type="button" id="start"></button></div>
+        <div class="intro-action"><button class="main-btn" type="button" id="start"></button><button class="main-btn" type="button" id="space-start"></button></div>
       </div>
     </section>
     <section class="screen" data-screen="select" hidden aria-labelledby="select-title">
       <div class="select-layout">
         <div class="section-intro"><button class="back" data-back type="button"><span class="back-circle" aria-hidden="true">←</span><span>Назад</span></button><h2 id="select-title" tabindex="-1"></h2></div>
         <div class="direction-list" id="directions"></div>
+      </div>
+    </section>
+    <section class="screen" data-screen="space" hidden aria-labelledby="space-title">
+      <div class="space-layout">
+        <div class="section-intro"><button class="back" data-back type="button"><span class="back-circle" aria-hidden="true">←</span><span>Назад</span></button><h2 id="space-title" tabindex="-1"></h2><p class="city-prompt" id="city-prompt"></p></div>
+        <div class="city-list" id="cities"></div>
       </div>
     </section>
     <section class="screen" data-screen="form" hidden aria-labelledby="form-heading">

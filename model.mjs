@@ -6,8 +6,11 @@ export const CONFIG = {
   sizes: ['S', 'M', 'L', 'Иной'],
   ui: {
     introTitle: 'Не листай. Собери свою ситуацию.',
-    introDescription: 'Выберите свой запрос и укажите размер и рост. Продолжим подбор вашего образа в чате.',
+    introDescription: 'Выберите свой запрос. Подберём образ в чате или в нашем пространстве.',
     startButton: 'Подобрать идеальный образ',
+    spaceButton: 'Подобрать образ в пространстве',
+    spaceTitle: 'Подобрать образ в пространстве',
+    cityPrompt: 'Выберите город',
     branchTitle: 'Какой образ вы ищете?',
     formTitle: 'Уточним размер и рост',
     backButton: 'Назад',
@@ -24,34 +27,54 @@ export const CONFIG = {
       key: 'custom',
       brand: 'RUBIA&MORENA',
       cardTitle: 'Хочу эксклюзивное платье по моим меркам',
-      image: 'assets/IMG_4620.jpeg',
+      image: 'assets/IMG_4915.jpeg',
+      imageWidth: 1199,
+      imageHeight: 1600,
       cta: 'Перейти в чат с Rubia&Morena',
       messageIntro: 'Здравствуйте! Хочу эксклюзивное платье Rubia&Morena по моим меркам.',
       messageEnd: 'Помогите, пожалуйста, подобрать модель.',
       collageLabel: 'по меркам',
-      alt: 'Длинное чёрное кружевное платье Rubia&Morena',
+      alt: 'Оливковое платье с пайетками и атласной юбкой',
     },
     {
       key: 'training',
       brand: 'LILIAN',
       cardTitle: 'Хочу образ на тренировку или урок',
-      image: 'assets/IMG_4622.jpeg',
+      image: 'assets/IMG_4920.jpeg',
+      imageWidth: 1200,
+      imageHeight: 1600,
       cta: 'Перейти в чат с LILIAN',
       messageIntro: 'Здравствуйте! Хочу подобрать образ LILIAN на тренировку или урок.',
       messageEnd: 'Помогите, пожалуйста, с подбором.',
       collageLabel: 'тренировка / урок',
-      alt: 'Жёлтый топ и фиолетовая юбка LILIAN',
+      alt: 'Фиолетовый топ и малиновая юбка на фоне кирпичной стены',
     },
     {
       key: 'milonga',
       brand: 'LILIAN',
       cardTitle: 'Хочу образ на милонгу или практику',
-      image: 'assets/IMG_4627.jpeg',
+      image: 'assets/IMG_4914.jpeg',
+      imageWidth: 1200,
+      imageHeight: 1600,
       cta: 'Перейти в чат с LILIAN',
       messageIntro: 'Здравствуйте! Хочу подобрать образ LILIAN на милонгу или практику.',
       messageEnd: 'Помогите, пожалуйста, с подбором.',
       collageLabel: 'милонга / практика',
-      alt: 'Коричневое платье LILIAN в полный рост',
+      alt: 'Тёмно-зелёное бархатное платье с открытыми плечами',
+    },
+  ],
+  cities: [
+    {
+      key: 'moscow',
+      label: 'В Москве',
+      recipient: 'pantheleia',
+      message: 'Здравствуйте! Хочу подобрать образ в вашем пространстве в Москве. Подскажите, пожалуйста, когда можно прийти на примерку?',
+    },
+    {
+      key: 'yekaterinburg',
+      label: 'В Екатеринбурге',
+      recipient: 'rubiamorenadress',
+      message: 'Здравствуйте! Хочу подобрать образ в вашем пространстве в Екатеринбурге. Подскажите, пожалуйста, когда можно прийти на примерку?',
     },
   ],
 };
@@ -101,4 +124,10 @@ export function buildMessage(branch, size, height) {
 export function createContactUrl(branch, size, height) {
   const message = buildMessage(branch, size, height);
   return `https://t.me/${CONFIG.recipient}?text=${encodeURIComponent(message)}`;
+}
+
+export function createCityContactUrl(cityKey) {
+  const city = CONFIG.cities.find((item) => item.key === cityKey);
+  if (!city) throw new RangeError(CONFIG.ui.cityPrompt);
+  return `https://t.me/${city.recipient}?text=${encodeURIComponent(city.message)}`;
 }

@@ -122,7 +122,15 @@ legend { padding: 0; }
   margin: 28px 0 0;
   color: #283927;
 }
-.intro-action { grid-area: action; align-self: start; padding-top: 35px; }
+.intro-action {
+  grid-area: action;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
+  padding-top: 35px;
+}
 .main-btn {
   border: 0;
   border-radius: 32px;
@@ -151,7 +159,7 @@ legend { padding: 0; }
   grid-area: collage;
   position: relative;
   width: 100%;
-  aspect-ratio: 1.06;
+  aspect-ratio: 1.04;
   align-self: center;
   isolation: isolate;
 }
@@ -167,32 +175,41 @@ legend { padding: 0; }
   position: absolute;
   margin: 0;
   background: var(--paper);
-  padding: 7px 7px 30px;
+  padding: 7px 7px 33px;
   box-shadow: 0 20px 36px var(--shadow);
   border: 1px solid rgba(255, 255, 255, .63);
   transform-origin: center;
 }
-.collage-card img {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  object-position: center;
+.collage-card .photo-window {
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
 }
+.collage-card .photo-window img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform-origin: 50% 45%;
+}
+.collage-center .photo-window img { transform: scale(1.20); }
+.collage-left .photo-window img { transform: scale(1.18); }
+.collage-right .photo-window img { transform: scale(1.25); }
 .collage-card figcaption {
   position: absolute;
-  bottom: 8px;
-  left: 2px;
-  right: 2px;
+  bottom: 9px;
+  left: 4px;
+  right: 4px;
   text-align: center;
   color: #30402e;
-  font-size: clamp(9px, .8vw, 11px);
-  letter-spacing: .01em;
-  line-height: 1.1;
+  font-size: clamp(10px, 2.65vw, 12px);
+  letter-spacing: 0;
+  line-height: 1.15;
 }
-/* Each print uses its original ratio: square training; portrait dresses. */
-.collage-left { left: 5%; top: 39%; width: 43%; transform: rotate(-9deg); z-index: 1; }
-.collage-center { left: 28%; top: 5%; width: 44%; transform: rotate(.5deg); z-index: 3; }
-.collage-right { left: 55%; top: 23%; width: 40%; transform: rotate(8deg); z-index: 2; }
+/* Crop empty surroundings only; keep faces, garment hems and shoes visible. */
+.collage-left { left: 2%; top: 32%; width: 40%; transform: rotate(-9deg); z-index: 1; }
+.collage-center { left: 29%; top: 5%; width: 42%; transform: rotate(.5deg); z-index: 3; }
+.collage-right { left: 60%; top: 25%; width: 37%; transform: rotate(8deg); z-index: 2; }
 
 .back {
   display: inline-flex;
@@ -217,7 +234,7 @@ legend { padding: 0; }
   font-size: 23px;
   line-height: 1;
 }
-.select-layout {
+.select-layout, .space-layout {
   display: grid;
   grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr);
   gap: 42px;
@@ -227,7 +244,7 @@ legend { padding: 0; }
 }
 .section-intro { position: sticky; top: calc(35px + var(--safe-top)); min-width: 0; }
 .section-intro h2 { font-size: clamp(48px, 5.1vw, 79px); margin-top: 65px; }
-.direction-list { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.direction-list, .city-list { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .direction-card {
   width: 100%;
   border: 1px solid var(--line);
@@ -247,23 +264,15 @@ legend { padding: 0; }
 .direction-card > span { min-width: 0; }
 .direction-card img {
   width: 120px;
-  height: 150px;
+  height: 160px;
   border-radius: 15px;
   object-fit: contain;
   object-position: center;
   background: #e2e4d7;
 }
-.direction-card[data-branch='training'] img { height: 120px; aspect-ratio: 1; }
-.d-brand {
-  display: block;
-  font-size: 11px;
-  letter-spacing: .17em;
-  font-weight: 700;
-  margin-bottom: 13px;
-  color: #465940;
-}
 .d-title {
   display: block;
+  align-self: center;
   font-family: Georgia, 'Times New Roman', serif;
   font-weight: 700;
   line-height: 1.1;
@@ -271,6 +280,33 @@ legend { padding: 0; }
   font-size: clamp(22px, 2.1vw, 27px);
 }
 .d-arrow { align-self: center; font-size: 24px; color: #355437; padding: 3px; text-align: center; }
+
+.city-prompt { margin: 24px 0 0; font-size: 18px; line-height: 1.5; color: #283927; }
+.city-list { padding-top: 109px; }
+.city-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 112px;
+  padding: 24px 26px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(244, 244, 233, .88);
+  color: #1e2b1e;
+  text-align: left;
+  box-shadow: 0 7px 15px rgba(34, 51, 32, .035);
+  transition: transform .18s, background .18s, box-shadow .18s;
+}
+.city-label {
+  min-width: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(25px, 2.5vw, 33px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.027em;
+}
 
 .form-layout {
   display: grid;
@@ -291,7 +327,6 @@ legend { padding: 0; }
   border: 10px solid var(--paper);
   box-shadow: 0 17px 44px rgba(42, 50, 34, .19);
 }
-.chosen-photo[data-branch='training'] img { aspect-ratio: 1; }
 .chosen-photo::after {
   content: '';
   position: absolute;
@@ -373,7 +408,7 @@ legend { padding: 0; }
 @media (hover: hover) {
   .main-btn:hover { background: #253d27; transform: translateY(-2px); }
   .back:hover .back-circle { background: rgba(255, 255, 255, .34); }
-  .direction-card:hover { background: #f8f8ee; transform: translateY(-2px); box-shadow: 0 14px 28px rgba(34, 51, 32, .09); }
+  .direction-card:hover, .city-card:hover { background: #f8f8ee; transform: translateY(-2px); box-shadow: 0 14px 28px rgba(34, 51, 32, .09); }
   .size-btn:hover { border-color: #233b23; }
 }
 
@@ -393,7 +428,8 @@ legend { padding: 0; }
   .collage { margin-top: 18px; width: min(100%, 540px); justify-self: center; }
   .intro-action { padding-top: 5px; }
   .intro-action .main-btn { width: 100%; }
-  .select-layout { grid-template-columns: 1fr; gap: 28px; padding: 28px 0 70px; min-height: auto; }
+  .select-layout, .space-layout { grid-template-columns: 1fr; gap: 28px; padding: 28px 0 70px; min-height: auto; }
+  .city-list { padding-top: 0; }
   .section-intro { position: static; }
   .section-intro h2 { font-size: clamp(44px, 7.7vw, 65px); margin-top: 28px; max-width: 650px; }
   .form-layout { grid-template-columns: 1fr; gap: 24px; max-width: 700px; margin: 0 auto; padding: 25px 0 65px; min-height: auto; }
@@ -418,7 +454,6 @@ legend { padding: 0; }
     margin: 0;
     align-self: center;
   }
-  .form-photo-inline[data-branch='training'] { aspect-ratio: 1; }
 }
 
 @media (max-width: 500px) {
@@ -430,22 +465,21 @@ legend { padding: 0; }
   .hero-layout { padding: 29px 0 42px; }
   .intro-copy h1 { font-size: clamp(42px, 10.4vw, 53px); letter-spacing: -.065em; }
   .lead { font-size: 15px; line-height: 1.48; margin-top: 21px; }
-  .collage { margin: 16px 0 0; aspect-ratio: 1.09; }
-  .collage-card { padding: 5px 5px 26px; box-shadow: 0 12px 20px rgba(31, 45, 24, .17); }
-  .collage-card figcaption { font-size: 9px; letter-spacing: 0; bottom: 7px; }
-  .collage-left figcaption, .collage-right figcaption { font-size: 8px; }
-  .collage-left { top: 39%; }
+  .collage { margin: 16px 0 0; }
+  .collage-card { padding: 5px 5px 31px; box-shadow: 0 12px 20px rgba(31, 45, 24, .17); }
   .collage-center { top: 4%; }
   .collage-right { top: 25%; }
   .intro-action { padding-top: 6px; }
   .main-btn { font-size: 16px; min-height: 59px; padding: 16px 20px; gap: 9px; }
-  .select-layout { padding-top: 25px; gap: 21px; }
+  .select-layout, .space-layout { padding-top: 25px; gap: 21px; }
   .section-intro h2 { font-size: 43px; margin-top: 25px; }
   .direction-list { gap: 11px; }
+  .city-list { gap: 14px; }
+  .city-prompt { margin-top: 20px; font-size: 16px; }
+  .city-card { min-height: 92px; padding: 22px 20px; border-radius: 19px; grid-template-columns: minmax(0, 1fr) 18px; gap: 12px; }
+  .city-label { font-size: clamp(24px, 6.4vw, 29px); }
   .direction-card { border-radius: 19px; padding: 10px; grid-template-columns: 94px minmax(0, 1fr) 18px; gap: 12px; min-height: 142px; }
   .direction-card img { width: 94px; height: 125px; border-radius: 12px; }
-  .direction-card[data-branch='training'] img { height: 94px; }
-  .d-brand { font-size: 9.5px; margin-bottom: 9px; letter-spacing: .13em; }
   .d-title { font-size: 20px; line-height: 1.12; letter-spacing: -.037em; }
   .d-arrow { font-size: 19px; padding: 0; }
   .form-layout { padding-top: 22px; }
@@ -466,10 +500,7 @@ legend { padding: 0; }
   .intro-copy h1 { font-size: 42px; }
   .direction-card { grid-template-columns: 77px minmax(0, 1fr) 15px; gap: 10px; min-height: 128px; }
   .direction-card img { width: 77px; height: 103px; }
-  .direction-card[data-branch='training'] img { height: 77px; }
   .d-title { font-size: 18px; }
-  .collage-card figcaption { font-size: 8px; }
-  .collage-left figcaption, .collage-right figcaption { font-size: 7px; }
   .form-intro { grid-template-columns: minmax(0, 1fr) 91px; column-gap: 11px; }
   .form-intro h2 { font-size: 36px; }
   .main-btn { padding-inline: 17px; }

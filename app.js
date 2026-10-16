@@ -1,7 +1,8 @@
-import { CONFIG, normalizeHeight, validate, createContactUrl } from './model.mjs';
+import { CONFIG, normalizeHeight, validate, createContactUrl, createCityContactUrl } from './model.mjs';
 
 const state = { screen: 'intro', branch: null, size: null, height: '' };
-const screens = ['intro', 'select', 'form'];
+const screens = ['intro', 'select', 'form', 'space'];
+const stepByScreen = { intro: 0, select: 1, form: 2 };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const heightInput = $('#height-input');
@@ -22,6 +23,7 @@ function populate() {
     '#size-label': 'sizeLabel', '#height-label': 'heightLabel',
     '#size-error': 'sizeError', '#height-error': 'heightError',
     '#contact-hint': 'contactHint',
+    '#space-start': 'spaceButton', '#space-title': 'spaceTitle', '#city-prompt': 'cityPrompt',
   };
   for (const [selector, key] of Object.entries(text)) $(selector).textContent = CONFIG.ui[key];
   heightInput.placeholder = CONFIG.ui.heightPlaceholder;
@@ -29,17 +31,26 @@ function populate() {
     const figure = $(`[data-image-branch="${branch.key}"]`);
     figure.querySelector('img').src = branch.image;
     figure.querySelector('img').alt = branch.alt;
+    figure.querySelector('img').width = branch.imageWidth;
+    figure.querySelector('img').height = branch.imageHeight;
     figure.querySelector('figcaption').textContent = branch.collageLabel;
     const card = document.createElement('button');
     card.type = 'button'; card.className = 'direction-card'; card.dataset.branch = branch.key;
     const image = document.createElement('img');
-    image.src = branch.image; image.alt = branch.alt; image.width = branch.key === 'training' ? 1280 : 960; image.height = 1280;
+    image.src = branch.image; image.alt = branch.alt; image.width = branch.imageWidth; image.height = branch.imageHeight;
     const copy = document.createElement('span');
-    for (const [className, value] of [['d-brand', branch.brand], ['d-title', branch.cardTitle]]) {
-      const span = document.createElement('span'); span.className = className; span.textContent = value; copy.append(span);
-    }
+    const title = document.createElement('span'); title.className = 'd-title'; title.textContent = branch.cardTitle; copy.append(title);
     const arrow = document.createElement('span'); arrow.className = 'd-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
     card.append(image, copy, arrow); card.addEventListener('click', () => selectBranch(branch.key)); $('#directions').append(card);
+  }
+  for (const city of CONFIG.cities) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'city-card'; button.dataset.city = city.key;
+    const label = document.createElement('span'); label.className = 'city-label'; label.textContent = city.label;
+    const arrow = document.createElement('span'); arrow.className = 'd-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
+    button.append(label, arrow);
+    button.addEventListener('click', () => openPreparedContact(createCityContactUrl(city.key)));
+    $('#cities').append(button);
   }
   for (const size of CONFIG.sizes) {
     const label = document.createElement('label'); label.className = 'size-btn';
@@ -70,7 +81,7 @@ function syncForm() {
   $('#chosen-photo').dataset.branch = branch.key;
   for (const img of [$('#photo-large'), $('#photo-inline')]) {
     img.src = branch.image; img.alt = branch.alt; img.dataset.branch = branch.key;
-    img.width = branch.key === 'training' ? 1280 : 960; img.height = 1280;
+    img.width = branch.imageWidth; img.height = branch.imageHeight;
   }
   heightInput.value = state.height;
   for (const radio of $$('input[name="size"]')) radio.checked = radio.value === state.size;
@@ -80,9 +91,12 @@ function showScreen(screen, { push = true, focus = true } = {}) {
   if (!screens.includes(screen) || (screen === 'form' && !state.branch)) screen = 'intro';
   state.screen = screen;
   for (const section of $$('.screen')) section.hidden = section.dataset.screen !== screen;
-  const step = screens.indexOf(screen);
-  $$('.step').forEach((segment, index) => segment.classList.toggle('active', index === step));
-  $('.steps').setAttribute('aria-label', `Шаг ${step + 1} из 3`);
+  const step = stepByScreen[screen];
+  $('.steps').hidden = step === undefined;
+  if (step !== undefined) {
+    $$('.step').forEach((segment, index) => segment.classList.toggle('active', index === step));
+    $('.steps').setAttribute('aria-label', `Шаг ${step + 1} из 3`);
+  }
   if (push) history.pushState({ rmLilian: true, screen }, '', location.href);
   updateBackButton();
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -142,6 +156,10 @@ function openContact(event) {
     return;
   }
   const url = createContactUrl(state.branch, state.size, result.height);
+  openPreparedContact(url);
+}
+
+function openPreparedContact(url) {
   initializeTelegram();
   if (telegram && typeof telegram.openTelegramLink === 'function') telegram.openTelegramLink(url);
   else window.location.assign(url);
@@ -150,6 +168,7 @@ function openContact(event) {
 populate();
 history.replaceState({ rmLilian: true, screen: 'intro' }, '', location.href);
 $('#start').addEventListener('click', () => showScreen('select'));
+$('#space-start').addEventListener('click', () => showScreen('space'));
 $('#home').addEventListener('click', () => { if (state.screen !== 'intro') showScreen('intro'); });
 $$('[data-back]').forEach((button) => button.addEventListener('click', goBack));
 window.addEventListener('popstate', (event) => {
