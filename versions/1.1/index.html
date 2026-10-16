@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#9AA982">
+  <meta name="color-scheme" content="light">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="app-version" content="1.1.0">
+  <title>Rubia&Morena / LILIAN — ваш образ</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css?v=1.1.0">
+  <script id="telegram-sdk" async src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script type="module" src="./app.js?v=1.1.0"></script>
+</head>
+<body>
+<div class="app"><div class="container">
+  <header class="site-head" aria-label="LILIAN / Rubia&Morena">
+    <button class="brand" id="home" type="button" aria-label="На главный экран">
+      <span class="brand-mark"><img src="./assets/IMG_4584.jpeg" width="853" height="1280" alt="LILIAN / RUBIA&MORENA"></span>
+    </button>
+    <div class="steps" role="status" aria-label="Шаг 1 из 3"><span class="step active"></span><span class="step"></span><span class="step"></span></div>
+  </header>
+  <main>
+    <section class="screen" data-screen="intro" aria-labelledby="hero-heading">
+      <div class="hero-layout">
+        <div class="intro-copy"><h1 id="hero-heading" tabindex="-1"><span>Не листай.</span> <span>Собери свою</span> <span>ситуацию.</span></h1><p class="lead" id="intro-description"></p></div>
+        <div class="collage" aria-label="Три направления образа">
+          <figure class="collage-card collage-left" data-image-branch="training"><span class="photo-window"><img width="1200" height="1600" alt=""></span><figcaption></figcaption></figure>
+          <figure class="collage-card collage-right" data-image-branch="milonga"><span class="photo-window"><img width="1200" height="1600" alt=""></span><figcaption></figcaption></figure>
+          <figure class="collage-card collage-center" data-image-branch="custom"><span class="photo-window"><img width="1199" height="1600" alt=""></span><figcaption></figcaption></figure>
+        </div>
+        <div class="intro-action"><button class="main-btn" type="button" id="start"></button><button class="main-btn" type="button" id="space-start"></button></div>
+      </div>
+    </section>
+    <section class="screen" data-screen="select" hidden aria-labelledby="select-title">
+      <div class="select-layout">
+        <div class="section-intro"><button class="back" data-back type="button"><span class="back-circle" aria-hidden="true">←</span><span>Назад</span></button><h2 id="select-title" tabindex="-1"></h2></div>
+        <div class="direction-list" id="directions"></div>
+      </div>
+    </section>
+    <section class="screen" data-screen="space" hidden aria-labelledby="space-title">
+      <div class="space-layout">
+        <div class="section-intro"><button class="back" data-back type="button"><span class="back-circle" aria-hidden="true">←</span><span>Назад</span></button><h2 id="space-title" tabindex="-1"></h2><p class="city-prompt" id="city-prompt"></p></div>
+        <div class="city-list" id="cities"></div>
+      </div>
+    </section>
+    <section class="screen" data-screen="form" hidden aria-labelledby="form-heading">
+      <div class="form-layout">
+        <figure class="chosen-photo" id="chosen-photo"><img id="photo-large" width="960" height="1280" alt=""></figure>
+        <div class="form-content">
+          <button class="back" data-back type="button"><span class="back-circle" aria-hidden="true">←</span><span>Назад</span></button>
+          <div class="form-intro"><p class="chosen-brand" id="chosen-brand"></p><h2 id="form-heading" tabindex="-1"></h2><p class="chosen-label" id="chosen-label"></p><img class="form-photo-inline" id="photo-inline" width="960" height="1280" alt=""></div>
+          <form id="parameters" novalidate autocomplete="off">
+            <fieldset class="field-block" id="size-field" aria-describedby="size-error"><legend class="field-label" id="size-label"></legend><div class="size-options" id="size-options"></div><p class="error" id="size-error" role="alert" hidden></p></fieldset>
+            <div class="field-block"><label class="field-label" for="height-input" id="height-label"></label><input class="height-input" id="height-input" name="height" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="height-error" required><p class="error" id="height-error" role="alert" hidden></p></div>
+            <button type="submit" class="main-btn submit-btn" id="submit-btn"></button>
+            <p class="microcopy" id="contact-hint"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+  <noscript>Для выбора образа включите JavaScript в браузере.</noscript>
+</div></div>
+</body>
+</html>
