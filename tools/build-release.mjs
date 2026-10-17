@@ -6,7 +6,10 @@ import { createHash } from 'node:crypto';
 import { CONFIG } from '../model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '1.1.3';
+const VERSION = '1.1.4';
+const PART_BYTES = 10000;
+const STARTUP_LIMIT = 12 * 1024;
+const MIRROR = 'https://dgardari-ai.github.io/rm-lilian-miniapp/releases/1.1.4/';
 const CURRENT = [
   'index.html', 'styles.css', 'app.js', 'model.mjs', 'robots.txt',
   'assets/IMG_4584.jpeg', 'assets/IMG_4914.jpeg',
@@ -80,30 +83,69 @@ export async function buildRelease(output) {
   if (destination === ROOT || ROOT.startsWith(destination + '/') || destination.startsWith(ROOT + '/')) {
     throw new Error('Release output must be outside the source checkout');
   }
-  const allowed = new Set([...CURRENT, ...ARCHIVE]);
-  for (const file of await listFiles(destination)) {
-    if (!allowed.has(relative(destination, file))) throw new Error(`Unexpected output file: ${file}`);
-  }
-  const [sourceHtml, css, model, loader, app] = await Promise.all([
+  const [sourceHtml, css, model, loader, app, sdk, startup] = await Promise.all([
     'index.html', 'styles.css', 'model.mjs', 'image-loader.mjs', 'app.js',
+    'tools/vendor/telegram-web-app.js', 'tools/startup-loader.js',
   ].map((name) => readFile(join(ROOT, name), 'utf8')));
+  const sdkHash = createHash('sha256').update(sdk).digest('hex');
+  if (sdkHash !== '124bdff7ba3fe86c8ba5143467afec21e020405e74abdb92cfdda6c0ee3b5908') {
+    throw new Error('Official Telegram SDK snapshot changed; review its source before updating the pin');
+  }
   const stripExports = (text) => text.replace(/^export (?=(?:const|function)\b)/gm, '');
   const appBody = app.replace(/^import [^\n]+;\r?\n/gm, '');
   const bundle = `(() => {\n'use strict';\n${stripExports(model)}\n${stripExports(loader)}\n${appBody}\n})();\n`;
   new Function(bundle); // Compile only: reject an invalid release without executing browser code.
   if (/<\/style/i.test(css)) throw new Error('CSS must not contain a closing style tag');
+  const runtime = new Map();
+  function group(kind, label, text, id) {
+    const bytes = Buffer.from(text);
+    const parts = [];
+    for (let offset = 0; offset < bytes.length; offset += PART_BYTES) {
+      const part = bytes.subarray(offset, offset + PART_BYTES);
+      const hash = createHash('sha256').update(part);
+      const hex = hash.copy().digest('hex');
+      const path = `runtime-1.1.4/${label}-${parts.length}-${hex.slice(0, 12)}.txt`;
+      runtime.set(path, part);
+      parts.push({ path, bytes: part.length, sha256: hash.digest('base64') });
+    }
+    return { kind, ...(id ? { id } : {}), parts };
+  }
+  const config = { version: VERSION, mirror: MIRROR, groups: [
+    group('style', 'style', css),
+    group('script', 'telegram', sdk, 'telegram-sdk'),
+    group('script', 'model', stripExports(model)),
+    group('script', 'images', stripExports(loader)),
+    group('script', 'app', appBody),
+  ] };
+  if (startup.split('__RM_RELEASE__').length !== 2) throw new Error('Startup config placeholder must occur exactly once');
+  const bootstrap = startup.replace('__RM_RELEASE__', JSON.stringify(config));
+  new Function(bootstrap);
+  // No external resource is needed to finish the first document. In particular,
+  // stalled photos or the Telegram SDK cannot hold Telegram's loading overlay.
   let html = renderStaticHtml(sourceHtml)
-    .replace(/  <link rel="stylesheet"[^>]*>\n/, () => `  <style>\n${css}\n</style>\n`)
-    .replace(/  <script type="module"[^>]*><\/script>\n/, '');
-  html = html.replace('</body>', () => `<script>\n${bundle.replace(/<\/script/gi, '<\\/script')}\n</script>\n</body>`);
+    .replace('<html lang="ru">', '<html lang="ru" class="rm-booting">')
+    .replace(/\s*<link rel="stylesheet"[^>]*>/, '')
+    .replace(/\s*<script id="telegram-sdk"[^>]*><\/script>/, '')
+    .replace(/\s*<script type="module"[^>]*><\/script>/, '')
+    .replace(/(<img\b[^>]*?)\ssrc=/g, '$1 data-rm-src=')
+    .replace(/\n[ \t]+/g, '\n');
+  const shell = `<style>html{background:#9AA982;color:#14251a}body{margin:0}.rm-booting .app{display:none}#rm-boot{padding:48px 24px;font:18px/1.5 system-ui,sans-serif;max-width:500px;margin:auto}#rm-retry{font:inherit;background:#304630;color:#fff;border:0;border-radius:30px;padding:14px 24px;cursor:pointer}</style>`;
+  html = html.replace('</head>', shell + '\n</head>');
+  html = html.replace('<body>', '<body>\n<div id="rm-boot" role="status" aria-live="polite"><p id="rm-boot-message">Открываем подбор образа…</p><button id="rm-retry" type="button" hidden>Попробовать ещё раз</button></div>');
+  html = html.replace('</body>', () => `<script>\n${bootstrap.replace(/<\/script/gi, '<\\/script')}\n</script>\n</body>`);
   const compressed = gzipSync(Buffer.from(html), { level: 9 });
-  if (compressed.length >= 16 * 1024) throw new Error(`Compressed index exceeds budget: ${compressed.length}`);
+  if (Buffer.byteLength(html) >= STARTUP_LIMIT) throw new Error(`Uncompressed index exceeds startup budget: ${Buffer.byteLength(html)}`);
+  const allowed = new Set([...CURRENT, ...ARCHIVE, ...runtime.keys()]);
+  for (const file of await listFiles(destination)) {
+    if (!allowed.has(relative(destination, file))) throw new Error(`Unexpected output file: ${file}`);
+  }
   await mkdir(destination, { recursive: true });
   const manifest = [];
-  for (const name of [...CURRENT, ...ARCHIVE]) {
+  for (const name of allowed) {
     let bytes;
     if (name === 'index.html') bytes = Buffer.from(html);
     else if (name === 'app.js') bytes = Buffer.from(bundle);
+    else if (runtime.has(name)) bytes = runtime.get(name);
     else bytes = await readFile(join(ROOT, name));
     await mkdir(dirname(join(destination, name)), { recursive: true });
     await writeFile(join(destination, name), bytes);
@@ -111,6 +153,7 @@ export async function buildRelease(output) {
   }
   return { version: VERSION, output: destination, files: manifest.length,
     indexBytes: Buffer.byteLength(html), indexGzipBytes: compressed.length,
+    startupLimit: STARTUP_LIMIT, runtimeParts: runtime.size,
     totalBytes: manifest.reduce((sum, file) => sum + file.bytes, 0), manifest };
 }
 
