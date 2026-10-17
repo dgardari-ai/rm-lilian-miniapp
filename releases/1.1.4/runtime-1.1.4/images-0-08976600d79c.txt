@@ -1,0 +1,72 @@
+const MIRROR = 'https://dgardari-ai.github.io/rm-lilian-miniapp/versions/1.1/';
+const APPROVED_IMAGES = new Set([
+  'assets/IMG_4584.jpeg', 'assets/IMG_4914.jpeg',
+  'assets/IMG_4915.jpeg', 'assets/IMG_4920.jpeg',
+]);
+const imageRequests = new WeakMap();
+
+/** Keep the original image first; a failed or stalled request gets one exact mirror. */
+function setResilientImage(img, source, { timeoutMs = 2800 } = {}) {
+  const primary = new URL(source, document.baseURI).href;
+  const previous = imageRequests.get(img);
+  if (previous?.primary === primary && img.src === previous.expected) return;
+  previous?.cleanup();
+
+  const relative = source.replace(/^\.\//, '');
+  const fallback = APPROVED_IMAGES.has(relative) ? MIRROR + relative : null;
+  let timer;
+  const request = { primary, expected: primary, usedFallback: false, cleanup };
+  imageRequests.set(img, request);
+  img.referrerPolicy = 'no-referrer';
+
+  function cleanup() {
+    clearTimeout(timer);
+    img.removeEventListener('load', onLoad);
+    img.removeEventListener('error', onError);
+  }
+
+  function isCurrent() {
+    return imageRequests.get(img) === request && img.src === request.expected;
+  }
+
+  function isExpectedSource() {
+    return !img.currentSrc || img.currentSrc === request.expected;
+  }
+
+  function useFallback() {
+    if (!isCurrent() || request.usedFallback || !fallback) {
+      cleanup();
+      return;
+    }
+    if (img.complete && img.naturalWidth > 0 && isExpectedSource()) {
+      cleanup();
+      return;
+    }
+    cleanup();
+    request.usedFallback = true;
+    request.expected = fallback;
+    img.src = fallback;
+  }
+
+  function onLoad() {
+    if (!isCurrent()) return;
+    if (!isExpectedSource()) return;
+    cleanup();
+  }
+
+  function onError() {
+    if (!isExpectedSource()) return;
+    useFallback();
+  }
+
+  if (fallback) {
+    img.addEventListener('load', onLoad);
+    img.addEventListener('error', onError);
+    timer = setTimeout(useFallback, timeoutMs);
+  }
+  if (img.src !== primary) img.src = primary;
+  if (img.complete && isExpectedSource()) {
+    if (img.naturalWidth > 0) cleanup();
+    else if (fallback) useFallback();
+  }
+}

@@ -1,0 +1,316 @@
+web_app_start_device_orientation', false, req_params);
+      return deviceOrientation;
+    };
+    deviceOrientation.stop = function(callback) {
+      if (!checkVersion()) {
+        return deviceOrientation;
+      }
+      if (callback) {
+        stopCallbacks.push(callback);
+      }
+      WebView.postEvent('web_app_stop_device_orientation');
+      return deviceOrientation;
+    };
+    return deviceOrientation;
+  })();
+
+  var Gyroscope = (function() {
+    var isStarted = false;
+    var valueX = null, valueY = null, valueZ = null;
+    var startCallbacks = [], stopCallbacks = [];
+
+    var gyroscope = {};
+    Object.defineProperty(gyroscope, 'isStarted', {
+      get: function(){ return isStarted; },
+      enumerable: true
+    });
+    Object.defineProperty(gyroscope, 'x', {
+      get: function(){ return valueX; },
+      enumerable: true
+    });
+    Object.defineProperty(gyroscope, 'y', {
+      get: function(){ return valueY; },
+      enumerable: true
+    });
+    Object.defineProperty(gyroscope, 'z', {
+      get: function(){ return valueZ; },
+      enumerable: true
+    });
+
+    WebView.onEvent('gyroscope_started',  onGyroscopeStarted);
+    WebView.onEvent('gyroscope_stopped',  onGyroscopeStopped);
+    WebView.onEvent('gyroscope_changed', onGyroscopeChanged);
+    WebView.onEvent('gyroscope_failed',  onGyroscopeFailed);
+
+    function onGyroscopeStarted(eventType, eventData) {
+      isStarted = true;
+      if (startCallbacks.length > 0) {
+        for (var i = 0; i < startCallbacks.length; i++) {
+          var callback = startCallbacks[i];
+          callback(true);
+        }
+        startCallbacks = [];
+      }
+      receiveWebViewEvent('gyroscopeStarted');
+    }
+    function onGyroscopeStopped(eventType, eventData) {
+      isStarted = false;
+      if (stopCallbacks.length > 0) {
+        for (var i = 0; i < stopCallbacks.length; i++) {
+          var callback = stopCallbacks[i];
+          callback(true);
+        }
+        stopCallbacks = [];
+      }
+      receiveWebViewEvent('gyroscopeStopped');
+    }
+    function onGyroscopeChanged(eventType, eventData) {
+      valueX = eventData.x;
+      valueY = eventData.y;
+      valueZ = eventData.z;
+      receiveWebViewEvent('gyroscopeChanged');
+    }
+    function onGyroscopeFailed(eventType, eventData) {
+      if (startCallbacks.length > 0) {
+        for (var i = 0; i < startCallbacks.length; i++) {
+          var callback = startCallbacks[i];
+          callback(false);
+        }
+        startCallbacks = [];
+      }
+      receiveWebViewEvent('gyroscopeFailed', {
+        error: eventData.error
+      });
+    }
+
+    function checkVersion() {
+      if (!versionAtLeast('8.0')) {
+        console.warn('[Telegram.WebApp] Gyroscope is not supported in version ' + webAppVersion);
+        return false;
+      }
+      return true;
+    }
+
+    gyroscope.start = function(params, callback) {
+      params = params || {};
+      if (!checkVersion()) {
+        return gyroscope;
+      }
+      var req_params = {};
+      var refresh_rate = parseInt(params.refresh_rate || 1000);
+      if (isNaN(refresh_rate) || refresh_rate < 20 || refresh_rate > 1000) {
+        console.warn('[Telegram.WebApp] Gyroscope refresh_rate is invalid', refresh_rate);
+      } else {
+        req_params.refresh_rate = refresh_rate;
+      }
+
+      if (callback) {
+        startCallbacks.push(callback);
+      }
+      WebView.postEvent('web_app_start_gyroscope', false, req_params);
+      return gyroscope;
+    };
+    gyroscope.stop = function(callback) {
+      if (!checkVersion()) {
+        return gyroscope;
+      }
+      if (callback) {
+        stopCallbacks.push(callback);
+      }
+      WebView.postEvent('web_app_stop_gyroscope');
+      return gyroscope;
+    };
+    return gyroscope;
+  })();
+
+  var Serverless = (function() {
+    var serverless = {};
+
+    function serverlessError(message, status, parameters) {
+      var err = new Error(message);
+      err.name = 'ServerlessError';
+      err.status = status;
+      if (parameters) {
+        err.parameters = parameters;
+      }
+      return err;
+    }
+
+    function parseEnvelope(name, response) {
+      return response.text().then(function(text) {
+        var data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {}
+        if (!data || typeof data !== 'object' || typeof data.ok !== 'boolean') {
+          throw serverlessError('Unexpected response from endpoint ' + name + ' (HTTP ' + response.status + ')', response.status);
+        }
+        if (!data.ok) {
+          var err = serverlessError(
+            data.description || 'Endpoint ' + name + ' failed (HTTP ' + response.status + ')',
+            data.error_code || response.status,
+            data.parameters);
+          err.type = data.error_type || '';
+          throw err;
+        }
+        return data.result;
+      });
+    }
+
+    serverless.call = function(name, input, callback) {
+      if (typeof input === 'function' && typeof callback === 'undefined') {
+        callback = input;
+        input = undefined;
+      }
+      if (typeof name !== 'string') {
+        console.error('[Telegram.WebApp] Serverless endpoint name is invalid', name);
+        throw Error('WebAppServerlessEndpointInvalid');
+      }
+      if (typeof input === 'undefined') {
+        input = {};
+      }
+      if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+        console.error('[Telegram.WebApp] Serverless endpoint input must be an object', input);
+        throw Error('WebAppServerlessInputInvalid');
+      }
+      if (typeof callback !== 'undefined' && typeof callback !== 'function') {
+        console.error('[Telegram.WebApp] Serverless callback must be a function', callback);
+        throw Error('WebAppServerlessCallbackInvalid');
+      }
+      if (!webAppInitData.length) {
+        console.error('[Telegram.WebApp] Serverless endpoints need initData; open the app from Telegram');
+        throw Error('WebAppServerlessInitDataUnavailable');
+      }
+      if (typeof fetch !== 'function') {
+        console.error('[Telegram.WebApp] Serverless endpoints need fetch()');
+        throw Error('WebAppServerlessFetchUnsupported');
+      }
+      fetch('/api/' + name, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'TMA ' + window.btoa(webAppInitData),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(input),
+        credentials: 'omit'
+      }).then(function(response) {
+        return parseEnvelope(name, response);
+      }, function(e) {
+        throw serverlessError('Network error calling endpoint ' + name + (e && e.message ? ': ' + e.message : ''), 0);
+      }).then(function(result) {
+        if (callback) {
+          callback(null, result);
+        }
+      }, function(err) {
+        if (callback) {
+          callback(err, null);
+        }
+      });
+    };
+
+    return serverless;
+  })();
+
+  var webAppInvoices = {};
+  function onInvoiceClosed(eventType, eventData) {
+    if (eventData.slug && webAppInvoices[eventData.slug]) {
+      var invoiceData = webAppInvoices[eventData.slug];
+      delete webAppInvoices[eventData.slug];
+      if (invoiceData.callback) {
+        invoiceData.callback(eventData.status);
+      }
+      receiveWebViewEvent('invoiceClosed', {
+        url: invoiceData.url,
+        status: eventData.status
+      });
+    }
+  }
+
+  var webAppPopupOpened = false;
+  function onPopupClosed(eventType, eventData) {
+    if (webAppPopupOpened) {
+      var popupData = webAppPopupOpened;
+      webAppPopupOpened = false;
+      var button_id = null;
+      if (typeof eventData.button_id !== 'undefined') {
+        button_id = eventData.button_id;
+      }
+      if (popupData.callback) {
+        popupData.callback(button_id);
+      }
+      receiveWebViewEvent('popupClosed', {
+        button_id: button_id
+      });
+    }
+  }
+
+  var webAppScanQrPopupOpened = false;
+  function onQrTextReceived(eventType, eventData) {
+    if (webAppScanQrPopupOpened) {
+      var popupData = webAppScanQrPopupOpened;
+      var data = null;
+      if (typeof eventData.data !== 'undefined') {
+        data = eventData.data;
+      }
+      if (popupData.callback) {
+        if (popupData.callback(data)) {
+          webAppScanQrPopupOpened = false;
+          WebView.postEvent('web_app_close_scan_qr_popup', false);
+        }
+      }
+      receiveWebViewEvent('qrTextReceived', {
+        data: data
+      });
+    }
+  }
+  function onScanQrPopupClosed(eventType, eventData) {
+    webAppScanQrPopupOpened = false;
+    receiveWebViewEvent('scanQrPopupClosed');
+  }
+
+  function onClipboardTextReceived(eventType, eventData) {
+    if (eventData.req_id && webAppCallbacks[eventData.req_id]) {
+      var requestData = webAppCallbacks[eventData.req_id];
+      delete webAppCallbacks[eventData.req_id];
+      var data = null;
+      if (typeof eventData.data !== 'undefined') {
+        data = eventData.data;
+      }
+      if (requestData.callback) {
+        requestData.callback(data);
+      }
+      receiveWebViewEvent('clipboardTextReceived', {
+        data: data
+      });
+    }
+  }
+
+  var WebAppWriteAccessRequested = false;
+  function onWriteAccessRequested(eventType, eventData) {
+    if (WebAppWriteAccessRequested) {
+      var requestData = WebAppWriteAccessRequested;
+      WebAppWriteAccessRequested = false;
+      if (requestData.callback) {
+        requestData.callback(eventData.status == 'allowed');
+      }
+      receiveWebViewEvent('writeAccessRequested', {
+        status: eventData.status
+      });
+    }
+  }
+
+  function getRequestedContact(callback, timeout) {
+    var reqTo, fallbackTo, reqDelay = 0;
+    var reqInvoke = function() {
+      invokeCustomMethod('getRequestedContact', {}, function(err, res) {
+        if (res.substr(0, 1) == '"' && res.substr(-1) == '"') { // macos fix
+          res = JSON.parse(res);
+        }
+        if (res && res.length) {
+          clearTimeout(fallbackTo);
+          callback(res);
+        } else {
+          reqDelay += 50;
+          reqTo = setTimeout(reqInvoke, reqDelay);
+        }
+      });

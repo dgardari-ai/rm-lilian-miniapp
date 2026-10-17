@@ -1,0 +1,307 @@
+def_colors = Utils.sessionStorageGet('defaultColors');
+  if (initParams.tgWebAppDefaultColors && initParams.tgWebAppDefaultColors.length) {
+    var defColorsRaw = initParams.tgWebAppDefaultColors;
+    try {
+      var def_colors = JSON.parse(defColorsRaw);
+      if (def_colors) {
+        setDefaultColors(def_colors);
+      }
+    } catch (e) {}
+  }
+  if (stored_def_colors) {
+    setDefaultColors(stored_def_colors);
+  }
+  if (initParams.tgWebAppVersion) {
+    webAppVersion = initParams.tgWebAppVersion;
+  }
+  if (initParams.tgWebAppPlatform) {
+    webAppPlatform = initParams.tgWebAppPlatform;
+  }
+
+  var stored_fullscreen = Utils.sessionStorageGet('isFullscreen');
+  if (initParams.tgWebAppFullscreen) {
+    setFullscreen(true);
+  }
+  if (stored_fullscreen) {
+    setFullscreen(stored_fullscreen == 'yes');
+  }
+
+  var stored_orientation_lock = Utils.sessionStorageGet('isOrientationLocked');
+  if (stored_orientation_lock) {
+    setOrientationLock(stored_orientation_lock == 'yes');
+  }
+
+  function onThemeChanged(eventType, eventData) {
+    if (eventData.theme_params) {
+      setThemeParams(eventData.theme_params);
+      window.Telegram.WebApp.MainButton.setParams({});
+      window.Telegram.WebApp.SecondaryButton.setParams({});
+      updateHeaderColor();
+      updateBackgroundColor();
+      updateBottomBarColor();
+      receiveWebViewEvent('themeChanged');
+    }
+  }
+
+  var lastWindowHeight = window.innerHeight;
+  function onViewportChanged(eventType, eventData) {
+    if (eventData.height) {
+      window.removeEventListener('resize', onWindowResize);
+      setViewportHeight(eventData);
+    }
+  }
+
+  function onWindowResize(e) {
+    if (lastWindowHeight != window.innerHeight) {
+      lastWindowHeight = window.innerHeight;
+      receiveWebViewEvent('viewportChanged', {
+        isStateStable: true
+      });
+    }
+  }
+
+  function onSafeAreaChanged(eventType, eventData) {
+    if (eventData) {
+      setSafeAreaInset(eventData);
+    }
+  }
+  function onContentSafeAreaChanged(eventType, eventData) {
+    if (eventData) {
+      setContentSafeAreaInset(eventData);
+    }
+  }
+
+  function onVisibilityChanged(eventType, eventData) {
+    if (eventData.is_visible) {
+      webAppIsActive = true;
+      receiveWebViewEvent('activated');
+    } else {
+      webAppIsActive = false;
+      receiveWebViewEvent('deactivated');
+    }
+  }
+
+  function linkHandler(e) {
+    if (e.metaKey || e.ctrlKey) return;
+    var el = e.target;
+    while (el.tagName != 'A' && el.parentNode) {
+      el = el.parentNode;
+    }
+    if (el.tagName == 'A' &&
+        el.target != '_blank' &&
+        (el.protocol == 'http:' || el.protocol == 'https:') &&
+        isTmeHostname(el.hostname)) {
+      WebApp.openTelegramLink(el.href);
+      e.preventDefault();
+    }
+  }
+
+  function strTrim(str) {
+    return str.toString().replace(/^\s+|\s+$/g, '');
+  }
+
+  function isTmeHostname(hostname) {
+    hostname = hostname.toString().toLowerCase();
+    return hostname == 't.me' || hostname == 'telegram.me';
+  }
+
+  function receiveWebViewEvent(eventType) {
+    var args = Array.prototype.slice.call(arguments);
+    eventType = args.shift();
+    WebView.callEventCallbacks('webview:' + eventType, function(callback) {
+      callback.apply(WebApp, args);
+    });
+  }
+
+  function onWebViewEvent(eventType, callback) {
+    WebView.onEvent('webview:' + eventType, callback);
+  };
+
+  function offWebViewEvent(eventType, callback) {
+    WebView.offEvent('webview:' + eventType, callback);
+  };
+
+  function setCssProperty(name, value) {
+    var root = document.documentElement;
+    if (root && root.style && root.style.setProperty) {
+      root.style.setProperty('--tg-' + name, value);
+    }
+  }
+
+  function setFullscreen(is_fullscreen) {
+    webAppIsFullscreen = !!is_fullscreen;
+    Utils.sessionStorageSet('isFullscreen', webAppIsFullscreen ? 'yes' : 'no');
+  }
+
+  function setOrientationLock(is_locked) {
+    webAppIsOrientationLocked = !!is_locked;
+    Utils.sessionStorageSet('isOrientationLocked', webAppIsOrientationLocked ? 'yes' : 'no');
+  }
+
+  function setThemeParams(theme_params) {
+    // temp iOS fix
+    if (theme_params.bg_color == '#1c1c1d' &&
+        theme_params.bg_color == theme_params.secondary_bg_color) {
+      theme_params.secondary_bg_color = '#2c2c2e';
+    }
+    var color;
+    for (var key in theme_params) {
+      if (color = parseColorToHex(theme_params[key])) {
+        themeParams[key] = color;
+        if (key == 'bg_color') {
+          colorScheme = isColorDark(color) ? 'dark' : 'light'
+          setCssProperty('color-scheme', colorScheme);
+        }
+        key = 'theme-' + key.split('_').join('-');
+        setCssProperty(key, color);
+      }
+    }
+    Utils.sessionStorageSet('themeParams', themeParams);
+  }
+
+  function setDefaultColors(def_colors) {
+    if (colorScheme == 'dark') {
+      if (def_colors.bg_dark_color) {
+        webAppBackgroundColor = def_colors.bg_dark_color;
+      }
+      if (def_colors.header_dark_color) {
+        webAppHeaderColorKey = null;
+        webAppHeaderColor = def_colors.header_dark_color;
+      }
+    } else {
+      if (def_colors.bg_color) {
+        webAppBackgroundColor = def_colors.bg_color;
+      }
+      if (def_colors.header_color) {
+        webAppHeaderColorKey = null;
+        webAppHeaderColor = def_colors.header_color;
+      }
+    }
+    Utils.sessionStorageSet('defaultColors', def_colors);
+  }
+
+  var webAppCallbacks = {};
+  function generateCallbackId(len) {
+    var tries = 100;
+    while (--tries) {
+      var id = '', chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', chars_len = chars.length;
+      for (var i = 0; i < len; i++) {
+        id += chars[Math.floor(Math.random() * chars_len)];
+      }
+      if (!webAppCallbacks[id]) {
+        webAppCallbacks[id] = {};
+        return id;
+      }
+    }
+    throw Error('WebAppCallbackIdGenerateFailed');
+  }
+
+  var viewportHeight = false, viewportStableHeight = false, isExpanded = true;
+  function setViewportHeight(data) {
+    if (typeof data !== 'undefined') {
+      isExpanded = !!data.is_expanded;
+      viewportHeight = data.height;
+      if (data.is_state_stable) {
+        viewportStableHeight = data.height;
+      }
+      receiveWebViewEvent('viewportChanged', {
+        isStateStable: !!data.is_state_stable
+      });
+    }
+    var height, stable_height;
+    if (viewportHeight !== false) {
+      height = (viewportHeight - bottomBarHeight) + 'px';
+    } else {
+      height = bottomBarHeight ? 'calc(100vh - ' + bottomBarHeight + 'px)' : '100vh';
+    }
+    if (viewportStableHeight !== false) {
+      stable_height = (viewportStableHeight - bottomBarHeight) + 'px';
+    } else {
+      stable_height = bottomBarHeight ? 'calc(100vh - ' + bottomBarHeight + 'px)' : '100vh';
+    }
+    setCssProperty('viewport-height', height);
+    setCssProperty('viewport-stable-height', stable_height);
+  }
+
+  var safeAreaInset = {top: 0, bottom: 0, left: 0, right: 0};
+  function setSafeAreaInset(data) {
+    if (typeof data !== 'undefined') {
+      if (typeof data.top !== 'undefined') {
+        safeAreaInset.top = data.top;
+      }
+      if (typeof data.bottom !== 'undefined') {
+        safeAreaInset.bottom = data.bottom;
+      }
+      if (typeof data.left !== 'undefined') {
+        safeAreaInset.left = data.left;
+      }
+      if (typeof data.right !== 'undefined') {
+        safeAreaInset.right = data.right;
+      }
+      receiveWebViewEvent('safeAreaChanged');
+    }
+    setCssProperty('safe-area-inset-top', safeAreaInset.top + 'px');
+    setCssProperty('safe-area-inset-bottom', safeAreaInset.bottom + 'px');
+    setCssProperty('safe-area-inset-left', safeAreaInset.left + 'px');
+    setCssProperty('safe-area-inset-right', safeAreaInset.right + 'px');
+  }
+
+  var contentSafeAreaInset = {top: 0, bottom: 0, left: 0, right: 0};
+  function setContentSafeAreaInset(data) {
+    if (typeof data !== 'undefined') {
+      if (typeof data.top !== 'undefined') {
+        contentSafeAreaInset.top = data.top;
+      }
+      if (typeof data.bottom !== 'undefined') {
+        contentSafeAreaInset.bottom = data.bottom;
+      }
+      if (typeof data.left !== 'undefined') {
+        contentSafeAreaInset.left = data.left;
+      }
+      if (typeof data.right !== 'undefined') {
+        contentSafeAreaInset.right = data.right;
+      }
+      receiveWebViewEvent('contentSafeAreaChanged');
+    }
+    setCssProperty('content-safe-area-inset-top', contentSafeAreaInset.top + 'px');
+    setCssProperty('content-safe-area-inset-bottom', contentSafeAreaInset.bottom + 'px');
+    setCssProperty('content-safe-area-inset-left', contentSafeAreaInset.left + 'px');
+    setCssProperty('content-safe-area-inset-right', contentSafeAreaInset.right + 'px');
+  }
+
+  var isClosingConfirmationEnabled = false;
+  function setClosingConfirmation(need_confirmation) {
+    if (!versionAtLeast('6.2')) {
+      console.warn('[Telegram.WebApp] Closing confirmation is not supported in version ' + webAppVersion);
+      return;
+    }
+    isClosingConfirmationEnabled = !!need_confirmation;
+    WebView.postEvent('web_app_setup_closing_behavior', false, {need_confirmation: isClosingConfirmationEnabled});
+  }
+
+  var isVerticalSwipesEnabled = true;
+  function toggleVerticalSwipes(enable_swipes) {
+    if (!versionAtLeast('7.7')) {
+      console.warn('[Telegram.WebApp] Changing swipes behavior is not supported in version ' + webAppVersion);
+      return;
+    }
+    isVerticalSwipesEnabled = !!enable_swipes;
+    WebView.postEvent('web_app_setup_swipe_behavior', false, {allow_vertical_swipe: isVerticalSwipesEnabled});
+  }
+
+  function onFullscreenChanged(eventType, eventData) {
+    setFullscreen(eventData.is_fullscreen);
+    receiveWebViewEvent('fullscreenChanged');
+  }
+  function onFullscreenFailed(eventType, eventData) {
+    if (eventData.error == 'ALREADY_FULLSCREEN' && !webAppIsFullscreen) {
+      setFullscreen(true);
+    }
+    receiveWebViewEvent('fullscreenFailed', {
+      error: eventData.error
+    });
+  }
+
+  function toggleOrientationLock(locked) {
+    if (!versionAtLeast('8.0')) {
+   

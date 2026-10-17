@@ -1,0 +1,306 @@
+undefined' && eventData.speed_accuracy !== null) {
+          locationData.speed_accuracy = eventData.speed_accuracy;
+        }
+      }
+      if (!eventData.available ||
+          !isLocationAvailable ||
+          !isAccessRequested ||
+          !isAccessGranted) {
+        initRequestState.callbacks.push(function() {
+          locationResponse(locationData);
+        });
+        WebView.postEvent('web_app_check_location', false);
+      } else {
+        locationResponse(locationData);
+      }
+    }
+    function locationResponse(response) {
+      if (getRequestState.callbacks.length > 0) {
+        for (var i = 0; i < getRequestState.callbacks.length; i++) {
+          var callback = getRequestState.callbacks[i];
+          callback(response);
+        }
+        getRequestState.callbacks = [];
+      }
+      if (response !== null) {
+        receiveWebViewEvent('locationRequested', {
+          locationData: response
+        });
+      }
+    }
+
+    function checkVersion() {
+      if (!versionAtLeast('8.0')) {
+        console.warn('[Telegram.WebApp] LocationManager is not supported in version ' + webAppVersion);
+        return false;
+      }
+      return true;
+    }
+
+    function checkInit() {
+      if (!isInited) {
+        console.error('[Telegram.WebApp] LocationManager should be inited before using.');
+        throw Error('WebAppLocationManagerNotInited');
+      }
+      return true;
+    }
+
+    locationManager.init = function(callback) {
+      if (!checkVersion()) {
+        return locationManager;
+      }
+      if (isInited) {
+        return locationManager;
+      }
+      if (callback) {
+        initRequestState.callbacks.push(callback);
+      }
+      WebView.postEvent('web_app_check_location', false);
+      return locationManager;
+    };
+    locationManager.getLocation = function(callback) {
+      if (!checkVersion()) {
+        return locationManager;
+      }
+      checkInit();
+      if (!isLocationAvailable) {
+        console.error('[Telegram.WebApp] Location is not available on this device.');
+        throw Error('WebAppLocationManagerLocationNotAvailable');
+      }
+
+      getRequestState.callbacks.push(callback);
+      WebView.postEvent('web_app_request_location');
+      return locationManager;
+    };
+    locationManager.openSettings = function() {
+      if (!checkVersion()) {
+        return locationManager;
+      }
+      checkInit();
+      if (!isLocationAvailable) {
+        console.error('[Telegram.WebApp] Location is not available on this device.');
+        throw Error('WebAppLocationManagerLocationNotAvailable');
+      }
+      if (!isAccessRequested) {
+        console.error('[Telegram.WebApp] Location access was not requested yet.');
+        throw Error('WebAppLocationManagerLocationAccessNotRequested');
+      }
+      if (isAccessGranted) {
+        console.warn('[Telegram.WebApp] Location access was granted by the user, no need to go to settings.');
+        return locationManager;
+      }
+      WebView.postEvent('web_app_open_location_settings', false);
+      return locationManager;
+    };
+    return locationManager;
+  })();
+
+  var Accelerometer = (function() {
+    var isStarted = false;
+    var valueX = null, valueY = null, valueZ = null;
+    var startCallbacks = [], stopCallbacks = [];
+
+    var accelerometer = {};
+    Object.defineProperty(accelerometer, 'isStarted', {
+      get: function(){ return isStarted; },
+      enumerable: true
+    });
+    Object.defineProperty(accelerometer, 'x', {
+      get: function(){ return valueX; },
+      enumerable: true
+    });
+    Object.defineProperty(accelerometer, 'y', {
+      get: function(){ return valueY; },
+      enumerable: true
+    });
+    Object.defineProperty(accelerometer, 'z', {
+      get: function(){ return valueZ; },
+      enumerable: true
+    });
+
+    WebView.onEvent('accelerometer_started', onAccelerometerStarted);
+    WebView.onEvent('accelerometer_stopped', onAccelerometerStopped);
+    WebView.onEvent('accelerometer_changed', onAccelerometerChanged);
+    WebView.onEvent('accelerometer_failed',  onAccelerometerFailed);
+
+    function onAccelerometerStarted(eventType, eventData) {
+      isStarted = true;
+      if (startCallbacks.length > 0) {
+        for (var i = 0; i < startCallbacks.length; i++) {
+          var callback = startCallbacks[i];
+          callback(true);
+        }
+        startCallbacks = [];
+      }
+      receiveWebViewEvent('accelerometerStarted');
+    }
+    function onAccelerometerStopped(eventType, eventData) {
+      isStarted = false;
+      if (stopCallbacks.length > 0) {
+        for (var i = 0; i < stopCallbacks.length; i++) {
+          var callback = stopCallbacks[i];
+          callback(true);
+        }
+        stopCallbacks = [];
+      }
+      receiveWebViewEvent('accelerometerStopped');
+    }
+    function onAccelerometerChanged(eventType, eventData) {
+      valueX = eventData.x;
+      valueY = eventData.y;
+      valueZ = eventData.z;
+      receiveWebViewEvent('accelerometerChanged');
+    }
+    function onAccelerometerFailed(eventType, eventData) {
+      if (startCallbacks.length > 0) {
+        for (var i = 0; i < startCallbacks.length; i++) {
+          var callback = startCallbacks[i];
+          callback(false);
+        }
+        startCallbacks = [];
+      }
+      receiveWebViewEvent('accelerometerFailed', {
+        error: eventData.error
+      });
+    }
+
+    function checkVersion() {
+      if (!versionAtLeast('8.0')) {
+        console.warn('[Telegram.WebApp] Accelerometer is not supported in version ' + webAppVersion);
+        return false;
+      }
+      return true;
+    }
+
+    accelerometer.start = function(params, callback) {
+      params = params || {};
+      if (!checkVersion()) {
+        return accelerometer;
+      }
+      var req_params = {};
+      var refresh_rate = parseInt(params.refresh_rate || 1000);
+      if (isNaN(refresh_rate) || refresh_rate < 20 || refresh_rate > 1000) {
+        console.warn('[Telegram.WebApp] Accelerometer refresh_rate is invalid', refresh_rate);
+      } else {
+        req_params.refresh_rate = refresh_rate;
+      }
+
+      if (callback) {
+        startCallbacks.push(callback);
+      }
+      WebView.postEvent('web_app_start_accelerometer', false, req_params);
+      return accelerometer;
+    };
+    accelerometer.stop = function(callback) {
+      if (!checkVersion()) {
+        return accelerometer;
+      }
+      if (callback) {
+        stopCallbacks.push(callback);
+      }
+      WebView.postEvent('web_app_stop_accelerometer');
+      return accelerometer;
+    };
+    return accelerometer;
+  })();
+
+  var DeviceOrientation = (function() {
+    var isStarted = false;
+    var valueAlpha = null, valueBeta = null, valueGamma = null, valueAbsolute = false;
+    var startCallbacks = [], stopCallbacks = [];
+
+    var deviceOrientation = {};
+    Object.defineProperty(deviceOrientation, 'isStarted', {
+      get: function(){ return isStarted; },
+      enumerable: true
+    });
+    Object.defineProperty(deviceOrientation, 'absolute', {
+      get: function(){ return valueAbsolute; },
+      enumerable: true
+    });
+    Object.defineProperty(deviceOrientation, 'alpha', {
+      get: function(){ return valueAlpha; },
+      enumerable: true
+    });
+    Object.defineProperty(deviceOrientation, 'beta', {
+      get: function(){ return valueBeta; },
+      enumerable: true
+    });
+    Object.defineProperty(deviceOrientation, 'gamma', {
+      get: function(){ return valueGamma; },
+      enumerable: true
+    });
+
+    WebView.onEvent('device_orientation_started',  onDeviceOrientationStarted);
+    WebView.onEvent('device_orientation_stopped',  onDeviceOrientationStopped);
+    WebView.onEvent('device_orientation_changed', onDeviceOrientationChanged);
+    WebView.onEvent('device_orientation_failed',  onDeviceOrientationFailed);
+
+    function onDeviceOrientationStarted(eventType, eventData) {
+      isStarted = true;
+      if (startCallbacks.length > 0) {
+        for (var i = 0; i < startCallbacks.length; i++) {
+          var callback = startCallbacks[i];
+          callback(true);
+        }
+        startCallbacks = [];
+      }
+      receiveWebViewEvent('deviceOrientationStarted');
+    }
+    function onDeviceOrientationStopped(eventType, eventData) {
+      isStarted = false;
+      if (stopCallbacks.length > 0) {
+        for (var i = 0; i < stopCallbacks.length; i++) {
+          var callback = stopCallbacks[i];
+          callback(true);
+        }
+        stopCallbacks = [];
+      }
+      receiveWebViewEvent('deviceOrientationStopped');
+    }
+    function onDeviceOrientationChanged(eventType, eventData) {
+      valueAbsolute = !!eventData.absolute;
+      valueAlpha = eventData.alpha;
+      valueBeta  = eventData.beta;
+      valueGamma = eventData.gamma;
+      receiveWebViewEvent('deviceOrientationChanged');
+    }
+    function onDeviceOrientationFailed(eventType, eventData) {
+      if (startCallbacks.length > 0) {
+        for (var i = 0; i < startCallbacks.length; i++) {
+          var callback = startCallbacks[i];
+          callback(false);
+        }
+        startCallbacks = [];
+      }
+      receiveWebViewEvent('deviceOrientationFailed', {
+        error: eventData.error
+      });
+    }
+
+    function checkVersion() {
+      if (!versionAtLeast('8.0')) {
+        console.warn('[Telegram.WebApp] DeviceOrientation is not supported in version ' + webAppVersion);
+        return false;
+      }
+      return true;
+    }
+
+    deviceOrientation.start = function(params, callback) {
+      params = params || {};
+      if (!checkVersion()) {
+        return deviceOrientation;
+      }
+      var req_params = {};
+      var refresh_rate = parseInt(params.refresh_rate || 1000);
+      if (isNaN(refresh_rate) || refresh_rate < 20 || refresh_rate > 1000) {
+        console.warn('[Telegram.WebApp] DeviceOrientation refresh_rate is invalid', refresh_rate);
+      } else {
+        req_params.refresh_rate = refresh_rate;
+      }
+      req_params.need_absolute = !!params.need_absolute;
+
+      if (callback) {
+        startCallbacks.push(callback);
+      }
+      WebView.postEvent('

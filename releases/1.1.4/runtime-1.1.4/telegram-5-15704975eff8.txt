@@ -1,0 +1,270 @@
+        }
+      } else if (params.type == 'selection_change') {
+        // no params needed
+      } else {
+        console.error('[Telegram.WebApp] Haptic feedback type is invalid', params.type);
+        throw Error('WebAppHapticFeedbackTypeInvalid');
+      }
+      WebView.postEvent('web_app_trigger_haptic_feedback', false, params);
+      return hapticFeedback;
+    }
+
+    hapticFeedback.impactOccurred = function(style) {
+      return triggerFeedback({type: 'impact', impact_style: style});
+    };
+    hapticFeedback.notificationOccurred = function(type) {
+      return triggerFeedback({type: 'notification', notification_type: type});
+    };
+    hapticFeedback.selectionChanged = function() {
+      return triggerFeedback({type: 'selection_change'});
+    };
+    return hapticFeedback;
+  })();
+
+  var CloudStorage = (function() {
+    var cloudStorage = {};
+
+    function invokeStorageMethod(method, params, callback) {
+      if (!versionAtLeast('6.9')) {
+        console.error('[Telegram.WebApp] CloudStorage is not supported in version ' + webAppVersion);
+        throw Error('WebAppMethodUnsupported');
+      }
+      invokeCustomMethod(method, params, callback);
+      return cloudStorage;
+    }
+
+    cloudStorage.setItem = function(key, value, callback) {
+      return invokeStorageMethod('saveStorageValue', {key: key, value: value}, callback);
+    };
+    cloudStorage.getItem = function(key, callback) {
+      return cloudStorage.getItems([key], callback ? function(err, res) {
+        if (err) callback(err);
+        else callback(null, res[key]);
+      } : null);
+    };
+    cloudStorage.getItems = function(keys, callback) {
+      return invokeStorageMethod('getStorageValues', {keys: keys}, callback);
+    };
+    cloudStorage.removeItem = function(key, callback) {
+      return cloudStorage.removeItems([key], callback);
+    };
+    cloudStorage.removeItems = function(keys, callback) {
+      return invokeStorageMethod('deleteStorageValues', {keys: keys}, callback);
+    };
+    cloudStorage.getKeys = function(callback) {
+      return invokeStorageMethod('getStorageKeys', {}, callback);
+    };
+    return cloudStorage;
+  })();
+
+  var DeviceStorage = (function() {
+    var deviceStorage = {};
+
+    WebView.onEvent('device_storage_key_saved',  onDeviceStorageEvent);
+    WebView.onEvent('device_storage_key_received', onDeviceStorageEvent);
+    WebView.onEvent('device_storage_cleared',  onDeviceStorageEvent);
+    WebView.onEvent('device_storage_failed',  onDeviceStorageEvent);
+
+    function onDeviceStorageEvent(eventType, eventData) {
+      if (eventData.req_id && webAppCallbacks[eventData.req_id]) {
+        var requestData = webAppCallbacks[eventData.req_id];
+        delete webAppCallbacks[eventData.req_id];
+        var res = null, err = null;
+        if (eventType == 'device_storage_failed') {
+          err = eventData.error || 'UNKNOWN_ERROR';
+        } else if (eventType == 'device_storage_key_received') {
+          res = eventData.value;
+        } else {
+          res = true;
+        }
+        if (requestData.callback) {
+          requestData.callback(err, res);
+        }
+      }
+    }
+
+    function invokeStorageMethod(method, params, callback) {
+      if (!versionAtLeast('9.0')) {
+        console.error('[Telegram.WebApp] DeviceStorage is not supported in version ' + webAppVersion);
+        throw Error('WebAppMethodUnsupported');
+      }
+      var req_id = generateCallbackId(16);
+      var req_params = {req_id: req_id};
+      for (var k in params) {
+        req_params[k] = params[k];
+      }
+      webAppCallbacks[req_id] = {
+        callback: callback
+      };
+      WebView.postEvent(method, false, req_params);
+      return deviceStorage;
+    }
+
+    deviceStorage.setItem = function(key, value, callback) {
+      return invokeStorageMethod('web_app_device_storage_save_key', {key: key, value: value}, callback);
+    };
+    deviceStorage.getItem = function(key, callback) {
+      return invokeStorageMethod('web_app_device_storage_get_key', {key: key}, callback);
+    };
+    deviceStorage.removeItem = function(key, callback) {
+      return invokeStorageMethod('web_app_device_storage_save_key', {key: key, value: null}, callback);
+    };
+    deviceStorage.clear = function(callback) {
+      return invokeStorageMethod('web_app_device_storage_clear', {}, callback);
+    };
+    return deviceStorage;
+  })();
+
+  var SecureStorage = (function() {
+    var secureStorage = {};
+
+    WebView.onEvent('secure_storage_key_saved',  onSecureStorageEvent);
+    WebView.onEvent('secure_storage_key_received', onSecureStorageEvent);
+    WebView.onEvent('secure_storage_key_restored', onSecureStorageEvent);
+    WebView.onEvent('secure_storage_cleared',  onSecureStorageEvent);
+    WebView.onEvent('secure_storage_failed',  onSecureStorageEvent);
+
+    function onSecureStorageEvent(eventType, eventData) {
+      if (eventData.req_id && webAppCallbacks[eventData.req_id]) {
+        var requestData = webAppCallbacks[eventData.req_id];
+        delete webAppCallbacks[eventData.req_id];
+        var res = null, err = null, can_restore = null;
+        if (eventType == 'secure_storage_failed') {
+          err = eventData.error || 'UNKNOWN_ERROR';
+        } else if (eventType == 'secure_storage_key_received') {
+          res = eventData.value;
+          if (eventData.can_restore) {
+            can_restore = true;
+          }
+        } else if (eventType == 'secure_storage_key_restored') {
+          res = eventData.value;
+        } else {
+          res = true;
+        }
+        if (requestData.callback) {
+          requestData.callback(err, res, can_restore);
+        }
+      }
+    }
+
+    function invokeStorageMethod(method, params, callback) {
+      if (!versionAtLeast('9.0')) {
+        console.error('[Telegram.WebApp] SecureStorage is not supported in version ' + webAppVersion);
+        throw Error('WebAppMethodUnsupported');
+      }
+      var req_id = generateCallbackId(16);
+      var req_params = {req_id: req_id};
+      for (var k in params) {
+        req_params[k] = params[k];
+      }
+      webAppCallbacks[req_id] = {
+        callback: callback
+      };
+      WebView.postEvent(method, false, req_params);
+      return secureStorage;
+    }
+
+    secureStorage.setItem = function(key, value, callback) {
+      return invokeStorageMethod('web_app_secure_storage_save_key', {key: key, value: value}, callback);
+    };
+    secureStorage.getItem = function(key, callback) {
+      return invokeStorageMethod('web_app_secure_storage_get_key', {key: key}, callback);
+    };
+    secureStorage.restoreItem = function(key, callback) {
+      return invokeStorageMethod('web_app_secure_storage_restore_key', {key: key}, callback);
+    };
+    secureStorage.removeItem = function(key, callback) {
+      return invokeStorageMethod('web_app_secure_storage_save_key', {key: key, value: null}, callback);
+    };
+    secureStorage.clear = function(callback) {
+      return invokeStorageMethod('web_app_secure_storage_clear', {}, callback);
+    };
+    return secureStorage;
+  })();
+
+  var BiometricManager = (function() {
+    var isInited = false;
+    var isBiometricAvailable = false;
+    var biometricType = 'unknown';
+    var isAccessRequested = false;
+    var isAccessGranted = false;
+    var isBiometricTokenSaved = false;
+    var deviceId = '';
+
+    var biometricManager = {};
+    Object.defineProperty(biometricManager, 'isInited', {
+      get: function(){ return isInited; },
+      enumerable: true
+    });
+    Object.defineProperty(biometricManager, 'isBiometricAvailable', {
+      get: function(){ return isInited && isBiometricAvailable; },
+      enumerable: true
+    });
+    Object.defineProperty(biometricManager, 'biometricType', {
+      get: function(){ return biometricType || 'unknown'; },
+      enumerable: true
+    });
+    Object.defineProperty(biometricManager, 'isAccessRequested', {
+      get: function(){ return isAccessRequested; },
+      enumerable: true
+    });
+    Object.defineProperty(biometricManager, 'isAccessGranted', {
+      get: function(){ return isAccessRequested && isAccessGranted; },
+      enumerable: true
+    });
+    Object.defineProperty(biometricManager, 'isBiometricTokenSaved', {
+      get: function(){ return isBiometricTokenSaved; },
+      enumerable: true
+    });
+    Object.defineProperty(biometricManager, 'deviceId', {
+      get: function(){ return deviceId || ''; },
+      enumerable: true
+    });
+
+    var initRequestState = {callbacks: []};
+    var accessRequestState = false;
+    var authRequestState = false;
+    var tokenRequestState = false;
+
+    WebView.onEvent('biometry_info_received',  onBiometryInfoReceived);
+    WebView.onEvent('biometry_auth_requested', onBiometryAuthRequested);
+    WebView.onEvent('biometry_token_updated',  onBiometryTokenUpdated);
+
+    function onBiometryInfoReceived(eventType, eventData) {
+      isInited = true;
+      if (eventData.available) {
+        isBiometricAvailable = true;
+        biometricType = eventData.type || 'unknown';
+        if (eventData.access_requested) {
+          isAccessRequested = true;
+          isAccessGranted = !!eventData.access_granted;
+          isBiometricTokenSaved = !!eventData.token_saved;
+        } else {
+          isAccessRequested = false;
+          isAccessGranted = false;
+          isBiometricTokenSaved = false;
+        }
+      } else {
+        isBiometricAvailable = false;
+        biometricType = 'unknown';
+        isAccessRequested = false;
+        isAccessGranted = false;
+        isBiometricTokenSaved = false;
+      }
+      deviceId = eventData.device_id || '';
+
+      if (initRequestState.callbacks.length > 0) {
+        for (var i = 0; i < initRequestState.callbacks.length; i++) {
+          var callback = initRequestState.callbacks[i];
+          callback();
+        }
+        initRequestState.callbacks = [];
+      }
+      if (accessRequestState) {
+        var state = accessRequestState;
+        accessRequestState = false;
+        if (state.callback) {
+          state.callback(isAccessGranted);
+        }
+      }
+      receiveWe

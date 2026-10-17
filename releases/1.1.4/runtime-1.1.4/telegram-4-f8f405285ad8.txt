@@ -1,0 +1,276 @@
+_emoji_id: iconCustomEmojiId,
+          text: buttonText,
+          color: color,
+          text_color: text_color,
+          has_shine_effect: hasShineEffect && isActive && !isProgressVisible
+        };
+        if (!isMainButton) {
+          params.position = buttonPosition;
+        }
+      } else {
+        var params = {
+          is_visible: false
+        };
+      }
+      return params;
+    }
+
+    function buttonState(btn_params) {
+      if (typeof btn_params === 'undefined') {
+        btn_params = buttonParams();
+      }
+      return JSON.stringify(btn_params);
+    }
+
+    function updateButton() {
+      var btn_params = buttonParams();
+      var btn_state = buttonState(btn_params);
+      if (curButtonState === btn_state) {
+        return;
+      }
+      curButtonState = btn_state;
+      WebView.postEvent(setupFnName, false, btn_params);
+      if (initParams.tgWebAppDebug) {
+        updateDebugButton(btn_params);
+      }
+    }
+
+    function updateDebugButton(btn_params) {
+      if (btn_params.is_visible) {
+        debugBtn.style.display = 'block';
+
+        debugBtn.style.opacity = btn_params.is_active ? '1' : '0.8';
+        debugBtn.style.cursor = btn_params.is_active ? 'pointer' : 'auto';
+        debugBtn.disabled = !btn_params.is_active;
+        debugBtn.innerText = btn_params.text;
+        debugBtn.className = btn_params.has_shine_effect ? 'shine' : '';
+        debugBtn.style.backgroundImage = btn_params.is_progress_visible ? "url('data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewport="0 0 48 48" width="48px" height="48px"><circle cx="50%" cy="50%" stroke="' + btn_params.text_color + '" stroke-width="2.25" stroke-linecap="round" fill="none" stroke-dashoffset="106" r="9" stroke-dasharray="56.52" rotate="-90"><animate attributeName="stroke-dashoffset" attributeType="XML" dur="360s" from="0" to="12500" repeatCount="indefinite"></animate><animateTransform attributeName="transform" attributeType="XML" type="rotate" dur="1s" from="-90 24 24" to="630 24 24" repeatCount="indefinite"></animateTransform></circle></svg>') + "')" : 'none';
+        debugBtn.style.backgroundColor = btn_params.color;
+        debugBtn.style.color = btn_params.text_color;
+      } else {
+        debugBtn.style.display = 'none';
+      }
+      updateDebugBottomBar();
+    }
+
+    function setParams(params) {
+      if (typeof params.icon_custom_emoji_id !== 'undefined') {
+        var emoji_id = params.icon_custom_emoji_id;
+        if (emoji_id === false || emoji_id === null) {
+          emoji_id = '';
+        }
+        if (emoji_id !== '' && !/^[0-9]{10,20}$/.test(emoji_id)) {
+          console.error('[Telegram.WebApp] Bottom button icon custom emoji is invalid', params.icon_custom_emoji_id);
+          throw Error('WebAppBottomButtonParamInvalid');
+        }
+        iconCustomEmojiId = emoji_id;
+      }
+      if (typeof params.text !== 'undefined') {
+        var text = strTrim(params.text);
+        if (!text.length && !iconCustomEmojiId) {
+          console.error('[Telegram.WebApp] Bottom button text is required', params.text);
+          throw Error('WebAppBottomButtonParamInvalid');
+        }
+        if (text.length > 64) {
+          console.error('[Telegram.WebApp] Bottom button text is too long', text);
+          throw Error('WebAppBottomButtonParamInvalid');
+        }
+        buttonText = text;
+      }
+      if (typeof params.color !== 'undefined') {
+        if (params.color === false ||
+            params.color === null) {
+          buttonColor = false;
+        } else {
+          var color = parseColorToHex(params.color);
+          if (!color) {
+            console.error('[Telegram.WebApp] Bottom button color format is invalid', params.color);
+            throw Error('WebAppBottomButtonParamInvalid');
+          }
+          buttonColor = color;
+        }
+      }
+      if (typeof params.text_color !== 'undefined') {
+        if (params.text_color === false ||
+            params.text_color === null) {
+          buttonTextColor = false;
+        } else {
+          var text_color = parseColorToHex(params.text_color);
+          if (!text_color) {
+            console.error('[Telegram.WebApp] Bottom button text color format is invalid', params.text_color);
+            throw Error('WebAppBottomButtonParamInvalid');
+          }
+          buttonTextColor = text_color;
+        }
+      }
+      if (typeof params.is_visible !== 'undefined') {
+        if (params.is_visible &&
+            !bottomButton.text.length) {
+          console.error('[Telegram.WebApp] Bottom button text is required');
+          throw Error('WebAppBottomButtonParamInvalid');
+        }
+        isVisible = !!params.is_visible;
+      }
+      if (typeof params.has_shine_effect !== 'undefined') {
+        hasShineEffect = !!params.has_shine_effect;
+      }
+      if (!isMainButton && typeof params.position !== 'undefined') {
+        if (params.position != 'left' && params.position != 'right' &&
+            params.position != 'top' && params.position != 'bottom') {
+          console.error('[Telegram.WebApp] Bottom button posiition is invalid', params.position);
+          throw Error('WebAppBottomButtonParamInvalid');
+        }
+        buttonPosition = params.position;
+      }
+      if (typeof params.is_active !== 'undefined') {
+        isActive = !!params.is_active;
+      }
+      updateButton();
+      return bottomButton;
+    }
+
+    bottomButton.setText = function(text) {
+      return bottomButton.setParams({text: text});
+    };
+    bottomButton.onClick = function(callback) {
+      onWebViewEvent(webViewEventName, callback);
+      return bottomButton;
+    };
+    bottomButton.offClick = function(callback) {
+      offWebViewEvent(webViewEventName, callback);
+      return bottomButton;
+    };
+    bottomButton.show = function() {
+      return bottomButton.setParams({is_visible: true});
+    };
+    bottomButton.hide = function() {
+      return bottomButton.setParams({is_visible: false});
+    };
+    bottomButton.enable = function() {
+      return bottomButton.setParams({is_active: true});
+    };
+    bottomButton.disable = function() {
+      return bottomButton.setParams({is_active: false});
+    };
+    bottomButton.showProgress = function(leaveActive) {
+      isActive = !!leaveActive;
+      isProgressVisible = true;
+      updateButton();
+      return bottomButton;
+    };
+    bottomButton.hideProgress = function() {
+      if (!bottomButton.isActive) {
+        isActive = true;
+      }
+      isProgressVisible = false;
+      updateButton();
+      return bottomButton;
+    }
+    bottomButton.setParams = setParams;
+    return bottomButton;
+  };
+  var MainButton = BottomButtonConstructor('main');
+  var SecondaryButton = BottomButtonConstructor('secondary');
+
+  var SettingsButton = (function() {
+    var isVisible = false;
+
+    var settingsButton = {};
+    Object.defineProperty(settingsButton, 'isVisible', {
+      set: function(val){ setParams({is_visible: val}); },
+      get: function(){ return isVisible; },
+      enumerable: true
+    });
+
+    var curButtonState = null;
+
+    WebView.onEvent('settings_button_pressed', onSettingsButtonPressed);
+
+    function onSettingsButtonPressed() {
+      receiveWebViewEvent('settingsButtonClicked');
+    }
+
+    function buttonParams() {
+      return {is_visible: isVisible};
+    }
+
+    function buttonState(btn_params) {
+      if (typeof btn_params === 'undefined') {
+        btn_params = buttonParams();
+      }
+      return JSON.stringify(btn_params);
+    }
+
+    function buttonCheckVersion() {
+      if (!versionAtLeast('6.10')) {
+        console.warn('[Telegram.WebApp] SettingsButton is not supported in version ' + webAppVersion);
+        return false;
+      }
+      return true;
+    }
+
+    function updateButton() {
+      var btn_params = buttonParams();
+      var btn_state = buttonState(btn_params);
+      if (curButtonState === btn_state) {
+        return;
+      }
+      curButtonState = btn_state;
+      WebView.postEvent('web_app_setup_settings_button', false, btn_params);
+    }
+
+    function setParams(params) {
+      if (!buttonCheckVersion()) {
+        return settingsButton;
+      }
+      if (typeof params.is_visible !== 'undefined') {
+        isVisible = !!params.is_visible;
+      }
+      updateButton();
+      return settingsButton;
+    }
+
+    settingsButton.onClick = function(callback) {
+      if (buttonCheckVersion()) {
+        onWebViewEvent('settingsButtonClicked', callback);
+      }
+      return settingsButton;
+    };
+    settingsButton.offClick = function(callback) {
+      if (buttonCheckVersion()) {
+        offWebViewEvent('settingsButtonClicked', callback);
+      }
+      return settingsButton;
+    };
+    settingsButton.show = function() {
+      return setParams({is_visible: true});
+    };
+    settingsButton.hide = function() {
+      return setParams({is_visible: false});
+    };
+    return settingsButton;
+  })();
+
+  var HapticFeedback = (function() {
+    var hapticFeedback = {};
+
+    function triggerFeedback(params) {
+      if (!versionAtLeast('6.1')) {
+        console.warn('[Telegram.WebApp] HapticFeedback is not supported in version ' + webAppVersion);
+        return hapticFeedback;
+      }
+      if (params.type == 'impact') {
+        if (params.impact_style != 'light' &&
+            params.impact_style != 'medium' &&
+            params.impact_style != 'heavy' &&
+            params.impact_style != 'rigid' &&
+            params.impact_style != 'soft') {
+          console.error('[Telegram.WebApp] Haptic impact style is invalid', params.impact_style);
+          throw Error('WebAppHapticImpactStyleInvalid');
+        }
+      } else if (params.type == 'notification') {
+        if (params.notification_type != 'error' &&
+            params.notification_type != 'success' &&
+            params.notification_type != 'warning') {
+          console.error('[Telegram.WebApp] Haptic notification type is invalid', params.notification_type);
+          throw Error('WebAppHapticNotificationTypeInvalid');

@@ -1,0 +1,304 @@
+
+    };
+    var fallbackInvoke = function() {
+      clearTimeout(reqTo);
+      callback('');
+    };
+    fallbackTo = setTimeout(fallbackInvoke, timeout);
+    reqInvoke();
+  }
+
+  var WebAppContactRequested = false;
+  function onPhoneRequested(eventType, eventData) {
+    if (WebAppContactRequested) {
+      var requestData = WebAppContactRequested;
+      WebAppContactRequested = false;
+      var requestSent = eventData.status == 'sent';
+      var webViewEvent = {
+        status: eventData.status
+      };
+      if (requestSent) {
+        getRequestedContact(function(res) {
+          if (res && res.length) {
+            webViewEvent.response = res;
+            webViewEvent.responseUnsafe = Utils.urlParseQueryString(res);
+            for (var key in webViewEvent.responseUnsafe) {
+              var val = webViewEvent.responseUnsafe[key];
+              try {
+                if (val.substr(0, 1) == '{' && val.substr(-1) == '}' ||
+                    val.substr(0, 1) == '[' && val.substr(-1) == ']') {
+                  webViewEvent.responseUnsafe[key] = JSON.parse(val);
+                }
+              } catch (e) {}
+            }
+          }
+          if (requestData.callback) {
+            requestData.callback(requestSent, webViewEvent);
+          }
+          receiveWebViewEvent('contactRequested', webViewEvent);
+        }, 3000);
+      } else {
+        if (requestData.callback) {
+          requestData.callback(requestSent, webViewEvent);
+        }
+        receiveWebViewEvent('contactRequested', webViewEvent);
+      }
+    }
+  }
+
+  var webAppDownloadFileRequested = false;
+  function onFileDownloadRequested(eventType, eventData) {
+    if (webAppDownloadFileRequested) {
+      var requestData = webAppDownloadFileRequested;
+      webAppDownloadFileRequested = false;
+      var isDownloading = eventData.status == 'downloading';
+      if (requestData.callback) {
+        requestData.callback(isDownloading);
+      }
+      receiveWebViewEvent('fileDownloadRequested', {
+        status: isDownloading ? 'downloading' : 'cancelled'
+      });
+    }
+  }
+
+  function onCustomMethodInvoked(eventType, eventData) {
+    if (eventData.req_id && webAppCallbacks[eventData.req_id]) {
+      var requestData = webAppCallbacks[eventData.req_id];
+      delete webAppCallbacks[eventData.req_id];
+      var res = null, err = null;
+      if (typeof eventData.result !== 'undefined') {
+        res = eventData.result;
+      }
+      if (typeof eventData.error !== 'undefined') {
+        err = eventData.error;
+      }
+      if (requestData.callback) {
+        requestData.callback(err, res);
+      }
+    }
+  }
+
+  function invokeCustomMethod(method, params, callback) {
+    if (!versionAtLeast('6.9')) {
+      console.error('[Telegram.WebApp] Method invokeCustomMethod is not supported in version ' + webAppVersion);
+      throw Error('WebAppMethodUnsupported');
+    }
+    var req_id = generateCallbackId(16);
+    var req_params = {req_id: req_id, method: method, params: params || {}};
+    webAppCallbacks[req_id] = {
+      callback: callback
+    };
+    WebView.postEvent('web_app_invoke_custom_method', false, req_params);
+  };
+
+  if (!window.Telegram) {
+    window.Telegram = {};
+  }
+
+  Object.defineProperty(WebApp, 'initData', {
+    get: function(){ return webAppInitData; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'initDataUnsafe', {
+    get: function(){ return webAppInitDataUnsafe; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'version', {
+    get: function(){ return webAppVersion; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'platform', {
+    get: function(){ return webAppPlatform; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'colorScheme', {
+    get: function(){ return colorScheme; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'themeParams', {
+    get: function(){ return themeParams; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'isExpanded', {
+    get: function(){ return isExpanded; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'viewportHeight', {
+    get: function(){ return (viewportHeight === false ? window.innerHeight : viewportHeight) - bottomBarHeight; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'viewportStableHeight', {
+    get: function(){ return (viewportStableHeight === false ? window.innerHeight : viewportStableHeight) - bottomBarHeight; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'safeAreaInset', {
+    get: function(){ return safeAreaInset; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'contentSafeAreaInset', {
+    get: function(){ return contentSafeAreaInset; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'isClosingConfirmationEnabled', {
+    set: function(val){ setClosingConfirmation(val); },
+    get: function(){ return isClosingConfirmationEnabled; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'isVerticalSwipesEnabled', {
+    set: function(val){ toggleVerticalSwipes(val); },
+    get: function(){ return isVerticalSwipesEnabled; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'isFullscreen', {
+    get: function(){ return webAppIsFullscreen; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'isOrientationLocked', {
+    set: function(val){ toggleOrientationLock(val); },
+    get: function(){ return webAppIsOrientationLocked; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'isActive', {
+    get: function(){ return webAppIsActive; },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'headerColor', {
+    set: function(val){ setHeaderColor(val); },
+    get: function(){ return getHeaderColor(); },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'backgroundColor', {
+    set: function(val){ setBackgroundColor(val); },
+    get: function(){ return getBackgroundColor(); },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'bottomBarColor', {
+    set: function(val){ setBottomBarColor(val); },
+    get: function(){ return getBottomBarColor(); },
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'BackButton', {
+    value: BackButton,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'MainButton', {
+    value: MainButton,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'SecondaryButton', {
+    value: SecondaryButton,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'SettingsButton', {
+    value: SettingsButton,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'HapticFeedback', {
+    value: HapticFeedback,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'CloudStorage', {
+    value: CloudStorage,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'DeviceStorage', {
+    value: DeviceStorage,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'SecureStorage', {
+    value: SecureStorage,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'BiometricManager', {
+    value: BiometricManager,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'Accelerometer', {
+    value: Accelerometer,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'DeviceOrientation', {
+    value: DeviceOrientation,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'Gyroscope', {
+    value: Gyroscope,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'LocationManager', {
+    value: LocationManager,
+    enumerable: true
+  });
+  Object.defineProperty(WebApp, 'Serverless', {
+    value: Serverless,
+    enumerable: true
+  });
+  WebApp.isVersionAtLeast = function(ver) {
+    return versionAtLeast(ver);
+  };
+  WebApp.setHeaderColor = function(color_key) {
+    WebApp.headerColor = color_key;
+  };
+  WebApp.setBackgroundColor = function(color) {
+    WebApp.backgroundColor = color;
+  };
+  WebApp.setBottomBarColor = function(color) {
+    WebApp.bottomBarColor = color;
+  };
+  WebApp.enableClosingConfirmation = function() {
+    WebApp.isClosingConfirmationEnabled = true;
+  };
+  WebApp.disableClosingConfirmation = function() {
+    WebApp.isClosingConfirmationEnabled = false;
+  };
+  WebApp.enableVerticalSwipes = function() {
+    WebApp.isVerticalSwipesEnabled = true;
+  };
+  WebApp.disableVerticalSwipes = function() {
+    WebApp.isVerticalSwipesEnabled = false;
+  };
+  WebApp.lockOrientation = function() {
+    WebApp.isOrientationLocked = true;
+  };
+  WebApp.unlockOrientation = function() {
+    WebApp.isOrientationLocked = false;
+  };
+  WebApp.requestFullscreen = function() {
+    if (!versionAtLeast('8.0')) {
+      console.error('[Telegram.WebApp] Method requestFullscreen is not supported in version ' + webAppVersion);
+      throw Error('WebAppMethodUnsupported');
+    }
+    WebView.postEvent('web_app_request_fullscreen');
+  };
+  WebApp.exitFullscreen = function() {
+    if (!versionAtLeast('8.0')) {
+      console.error('[Telegram.WebApp] Method exitFullscreen is not supported in version ' + webAppVersion);
+      throw Error('WebAppMethodUnsupported');
+    }
+    WebView.postEvent('web_app_exit_fullscreen');
+  };
+  WebApp.addToHomeScreen = function() {
+    if (!versionAtLeast('8.0')) {
+      console.error('[Telegram.WebApp] Method addToHomeScreen is not supported in version ' + webAppVersion);
+      throw Error('WebAppMethodUnsupported');
+    }
+    WebView.postEvent('web_app_add_to_home_screen');
+  };
+  WebApp.checkHomeScreenStatus = function(callback) {
+    if (!versionAtLeast('8.0')) {
+      console.error('[Telegram.WebApp] Method checkHomeScreenStatus is not supported in version ' + webAppVersion);
+      throw Error('WebAppMethodUnsupported');
+    }
+    if (callback) {
+      homeScreenCallbacks.push(callback);
+    }
+    WebView.postEvent('web_app_check_home_screen');
+  };
+  WebApp.onEvent = function(eventType, callback) {
+    onWebViewEvent(eventType, callback);
+  };
+  WebApp.offEvent = function(eventType, callback) {offWebViewEvent(eventType, callback);
+  };
+  WebApp.sendData = function (data) {
+    if (!data || !data.length) {
+      console.error

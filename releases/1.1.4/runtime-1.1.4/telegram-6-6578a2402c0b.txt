@@ -1,0 +1,280 @@
+bViewEvent('biometricManagerUpdated');
+    }
+    function onBiometryAuthRequested(eventType, eventData) {
+      var isAuthenticated = (eventData.status == 'authorized'),
+          biometricToken = eventData.token || '';
+      if (authRequestState) {
+        var state = authRequestState;
+        authRequestState = false;
+        if (state.callback) {
+          state.callback(isAuthenticated, isAuthenticated ? biometricToken : null);
+        }
+      }
+      receiveWebViewEvent('biometricAuthRequested', isAuthenticated ? {
+        isAuthenticated: true,
+        biometricToken: biometricToken
+      } : {
+        isAuthenticated: false
+      });
+    }
+    function onBiometryTokenUpdated(eventType, eventData) {
+      var applied = false;
+      if (isBiometricAvailable &&
+          isAccessRequested) {
+        if (eventData.status == 'updated') {
+          isBiometricTokenSaved = true;
+          applied = true;
+        }
+        else if (eventData.status == 'removed') {
+          isBiometricTokenSaved = false;
+          applied = true;
+        }
+      }
+      if (tokenRequestState) {
+        var state = tokenRequestState;
+        tokenRequestState = false;
+        if (state.callback) {
+          state.callback(applied);
+        }
+      }
+      receiveWebViewEvent('biometricTokenUpdated', {
+        isUpdated: applied
+      });
+    }
+
+    function checkVersion() {
+      if (!versionAtLeast('7.2')) {
+        console.warn('[Telegram.WebApp] BiometricManager is not supported in version ' + webAppVersion);
+        return false;
+      }
+      return true;
+    }
+
+    function checkInit() {
+      if (!isInited) {
+        console.error('[Telegram.WebApp] BiometricManager should be inited before using.');
+        throw Error('WebAppBiometricManagerNotInited');
+      }
+      return true;
+    }
+
+    biometricManager.init = function(callback) {
+      if (!checkVersion()) {
+        return biometricManager;
+      }
+      if (isInited) {
+        return biometricManager;
+      }
+      if (callback) {
+        initRequestState.callbacks.push(callback);
+      }
+      WebView.postEvent('web_app_biometry_get_info', false);
+      return biometricManager;
+    };
+    biometricManager.requestAccess = function(params, callback) {
+      if (!checkVersion()) {
+        return biometricManager;
+      }
+      checkInit();
+      if (!isBiometricAvailable) {
+        console.error('[Telegram.WebApp] Biometrics is not available on this device.');
+        throw Error('WebAppBiometricManagerBiometricsNotAvailable');
+      }
+      if (accessRequestState) {
+        console.error('[Telegram.WebApp] Access is already requested');
+        throw Error('WebAppBiometricManagerAccessRequested');
+      }
+      var popup_params = {};
+      if (typeof params.reason !== 'undefined') {
+        var reason = strTrim(params.reason);
+        if (reason.length > 128) {
+          console.error('[Telegram.WebApp] Biometric reason is too long', reason);
+          throw Error('WebAppBiometricRequestAccessParamInvalid');
+        }
+        if (reason.length > 0) {
+          popup_params.reason = reason;
+        }
+      }
+
+      accessRequestState = {
+        callback: callback
+      };
+      WebView.postEvent('web_app_biometry_request_access', false, popup_params);
+      return biometricManager;
+    };
+    biometricManager.authenticate = function(params, callback) {
+      if (!checkVersion()) {
+        return biometricManager;
+      }
+      checkInit();
+      if (!isBiometricAvailable) {
+        console.error('[Telegram.WebApp] Biometrics is not available on this device.');
+        throw Error('WebAppBiometricManagerBiometricsNotAvailable');
+      }
+      if (!isAccessGranted) {
+        console.error('[Telegram.WebApp] Biometric access was not granted by the user.');
+        throw Error('WebAppBiometricManagerBiometricAccessNotGranted');
+      }
+      if (authRequestState) {
+        console.error('[Telegram.WebApp] Authentication request is already in progress.');
+        throw Error('WebAppBiometricManagerAuthenticationRequested');
+      }
+      var popup_params = {};
+      if (typeof params.reason !== 'undefined') {
+        var reason = strTrim(params.reason);
+        if (reason.length > 128) {
+          console.error('[Telegram.WebApp] Biometric reason is too long', reason);
+          throw Error('WebAppBiometricRequestAccessParamInvalid');
+        }
+        if (reason.length > 0) {
+          popup_params.reason = reason;
+        }
+      }
+
+      authRequestState = {
+        callback: callback
+      };
+      WebView.postEvent('web_app_biometry_request_auth', false, popup_params);
+      return biometricManager;
+    };
+    biometricManager.updateBiometricToken = function(token, callback) {
+      if (!checkVersion()) {
+        return biometricManager;
+      }
+      token = token || '';
+      if (token.length > 1024) {
+        console.error('[Telegram.WebApp] Token is too long', token);
+        throw Error('WebAppBiometricManagerTokenInvalid');
+      }
+      checkInit();
+      if (!isBiometricAvailable) {
+        console.error('[Telegram.WebApp] Biometrics is not available on this device.');
+        throw Error('WebAppBiometricManagerBiometricsNotAvailable');
+      }
+      if (!isAccessGranted) {
+        console.error('[Telegram.WebApp] Biometric access was not granted by the user.');
+        throw Error('WebAppBiometricManagerBiometricAccessNotGranted');
+      }
+      if (tokenRequestState) {
+        console.error('[Telegram.WebApp] Token request is already in progress.');
+        throw Error('WebAppBiometricManagerTokenUpdateRequested');
+      }
+      tokenRequestState = {
+        callback: callback
+      };
+      WebView.postEvent('web_app_biometry_update_token', false, {token: token});
+      return biometricManager;
+    };
+    biometricManager.openSettings = function() {
+      if (!checkVersion()) {
+        return biometricManager;
+      }
+      checkInit();
+      if (!isBiometricAvailable) {
+        console.error('[Telegram.WebApp] Biometrics is not available on this device.');
+        throw Error('WebAppBiometricManagerBiometricsNotAvailable');
+      }
+      if (!isAccessRequested) {
+        console.error('[Telegram.WebApp] Biometric access was not requested yet.');
+        throw Error('WebAppBiometricManagerBiometricsAccessNotRequested');
+      }
+      if (isAccessGranted) {
+        console.warn('[Telegram.WebApp] Biometric access was granted by the user, no need to go to settings.');
+        return biometricManager;
+      }
+      WebView.postEvent('web_app_biometry_open_settings', false);
+      return biometricManager;
+    };
+    return biometricManager;
+  })();
+
+  var LocationManager = (function() {
+    var isInited = false;
+    var isLocationAvailable = false;
+    var isAccessRequested = false;
+    var isAccessGranted = false;
+
+    var locationManager = {};
+    Object.defineProperty(locationManager, 'isInited', {
+      get: function(){ return isInited; },
+      enumerable: true
+    });
+    Object.defineProperty(locationManager, 'isLocationAvailable', {
+      get: function(){ return isInited && isLocationAvailable; },
+      enumerable: true
+    });
+    Object.defineProperty(locationManager, 'isAccessRequested', {
+      get: function(){ return isAccessRequested; },
+      enumerable: true
+    });
+    Object.defineProperty(locationManager, 'isAccessGranted', {
+      get: function(){ return isAccessRequested && isAccessGranted; },
+      enumerable: true
+    });
+
+    var initRequestState = {callbacks: []};
+    var getRequestState = {callbacks: []};
+
+    WebView.onEvent('location_checked',  onLocationChecked);
+    WebView.onEvent('location_requested', onLocationRequested);
+
+    function onLocationChecked(eventType, eventData) {
+      isInited = true;
+      if (eventData.available) {
+        isLocationAvailable = true;
+        if (eventData.access_requested) {
+          isAccessRequested = true;
+          isAccessGranted = !!eventData.access_granted;
+        } else {
+          isAccessRequested = false;
+          isAccessGranted = false;
+        }
+      } else {
+        isLocationAvailable = false;
+        isAccessRequested = false;
+        isAccessGranted = false;
+      }
+
+      if (initRequestState.callbacks.length > 0) {
+        for (var i = 0; i < initRequestState.callbacks.length; i++) {
+          var callback = initRequestState.callbacks[i];
+          callback();
+        }
+        initRequestState.callbacks = [];
+      }
+      receiveWebViewEvent('locationManagerUpdated');
+    }
+    function onLocationRequested(eventType, eventData) {
+      if (!eventData.available) {
+        locationData = null;
+      } else {
+        var locationData = {
+          latitude: eventData.latitude,
+          longitude: eventData.longitude,
+          altitude: null,
+          course: null,
+          speed: null,
+          horizontal_accuracy: null,
+          vertical_accuracy: null,
+          course_accuracy: null,
+          speed_accuracy: null,
+        };
+        if (typeof eventData.altitude !== 'undefined' && eventData.altitude !== null) {
+          locationData.altitude = eventData.altitude;
+        }
+        if (typeof eventData.course !== 'undefined' && eventData.course !== null) {
+          locationData.course = eventData.course % 360;
+        }
+        if (typeof eventData.speed !== 'undefined' && eventData.speed !== null) {
+          locationData.speed = eventData.speed;
+        }
+        if (typeof eventData.horizontal_accuracy !== 'undefined' && eventData.horizontal_accuracy !== null) {
+          locationData.horizontal_accuracy = eventData.horizontal_accuracy;
+        }
+        if (typeof eventData.vertical_accuracy !== 'undefined' && eventData.vertical_accuracy !== null) {
+          locationData.vertical_accuracy = eventData.vertical_accuracy;
+        }
+        if (typeof eventData.course_accuracy !== 'undefined' && eventData.course_accuracy !== null) {
+          locationData.course_accuracy = eventData.course_accuracy;
+        }
+        if (typeof eventData.speed_accuracy !== '
